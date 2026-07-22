@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Environment and Secrets
+.env
+backend/.env
+frontend/.env
+*.json
+!package.json
+!package-lock.json
+!frontend/package.json
+!frontend/package-lock.json
+!frontend/app.json
+!frontend/eas.json
+!backend/package.json
+!backend/package-lock.json
+smart-firmament-*.json
+credentials.json
+
+# Expo / Builds
+frontend/.expo/
+frontend/dist/
+frontend/web-build/
+
+# OS / Temp
+.DS_Store
+*.log
