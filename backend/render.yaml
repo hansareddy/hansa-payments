@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: hansa-communications-backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SPREADSHEET_ID
+        sync: false
+      - key: SHEET_NAME
+        value: "JANUARY "
+      - key: GOOGLE_CREDENTIALS_JSON
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: "*"
