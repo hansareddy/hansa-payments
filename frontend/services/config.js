@@ -16,4 +16,4 @@
  *   https://your-app-name.onrender.com
  */
 
-export const API_BASE_URL = 'https://hansa-crm-backend.loca.lt';
+export const API_BASE_URL = 'https://hansa-payments.onrender.com';
