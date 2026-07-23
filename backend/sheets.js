@@ -68,6 +68,56 @@ function isGoogleConfigured() {
   return fs.existsSync(credentialsPath) && process.env.SPREADSHEET_ID && process.env.SPREADSHEET_ID !== 'your_spreadsheet_id_here';
 }
 
+function parseEnvCredentials(envVal) {
+  if (!envVal) return null;
+
+  // 1. Standard JSON parse
+  try {
+    const obj = JSON.parse(envVal);
+    if (obj.private_key) obj.private_key = obj.private_key.replace(/\\n/g, '\n');
+    return obj;
+  } catch (e) {}
+
+  // 2. Handle literal newlines in multi-line env var strings
+  try {
+    const fixed = envVal.replace(/\r?\n/g, '\\n');
+    const obj = JSON.parse(fixed);
+    if (obj.private_key) obj.private_key = obj.private_key.replace(/\\n/g, '\n');
+    return obj;
+  } catch (e) {}
+
+  // 3. Handle unescaped backslashes
+  try {
+    const fixedEscapes = envVal
+      .replace(/\\/g, '\\\\')
+      .replace(/\\\\"/g, '\\"')
+      .replace(/\\\\n/g, '\\n')
+      .replace(/\\\\t/g, '\\t')
+      .replace(/\\\\r/g, '\\r');
+    const obj = JSON.parse(fixedEscapes);
+    if (obj.private_key) obj.private_key = obj.private_key.replace(/\\n/g, '\n');
+    return obj;
+  } catch (e) {}
+
+  // 4. Regex extraction fallback if JSON string has invalid escape characters from web paste
+  try {
+    const privateKeyMatch = envVal.match(/"private_key"\s*:\s*"([\s\S]*?)"\s*,\s*"client_email"/);
+    const clientEmailMatch = envVal.match(/"client_email"\s*:\s*"([^"]+)"/);
+    const projectIdMatch = envVal.match(/"project_id"\s*:\s*"([^"]+)"/);
+
+    if (clientEmailMatch && privateKeyMatch) {
+      return {
+        type: 'service_account',
+        project_id: projectIdMatch ? projectIdMatch[1] : 'smart-firmament-496107-b0',
+        private_key: privateKeyMatch[1].replace(/\\n/g, '\n').replace(/[\r\n]+/g, '\n'),
+        client_email: clientEmailMatch[1]
+      };
+    }
+  } catch (e) {}
+
+  throw new Error('Could not parse GOOGLE_CREDENTIALS_JSON');
+}
+
 async function getClient() {
   if (sheetsClient) return sheetsClient;
 
@@ -75,10 +125,7 @@ async function getClient() {
 
   // Cloud deployment: parse credentials from environment variable
   if (process.env.GOOGLE_CREDENTIALS_JSON) {
-    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
-    if (credentials.private_key) {
-      credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
-    }
+    const credentials = parseEnvCredentials(process.env.GOOGLE_CREDENTIALS_JSON);
     auth = new google.auth.GoogleAuth({
       credentials,
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
