@@ -56,8 +56,8 @@ let localLedger = [
 let sheetsClient = null;
 
 function isGoogleConfigured() {
-  // Cloud deployment: credentials provided as JSON string in env var
-  if (process.env.GOOGLE_CREDENTIALS_JSON && process.env.SPREADSHEET_ID) {
+  // Cloud deployment: credentials provided as base64 or JSON string in env var
+  if ((process.env.GOOGLE_CREDENTIALS_BASE64 || process.env.GOOGLE_CREDENTIALS_JSON) && process.env.SPREADSHEET_ID) {
     return true;
   }
   // Local development: credentials from file
@@ -68,70 +68,45 @@ function isGoogleConfigured() {
   return fs.existsSync(credentialsPath) && process.env.SPREADSHEET_ID && process.env.SPREADSHEET_ID !== 'your_spreadsheet_id_here';
 }
 
-function parseEnvCredentials(envVal) {
-  if (!envVal) return null;
-
-  // 1. Standard JSON parse
-  try {
-    const obj = JSON.parse(envVal);
-    if (obj.private_key) obj.private_key = obj.private_key.replace(/\\n/g, '\n');
-    return obj;
-  } catch (e) {}
-
-  // 2. Handle literal newlines in multi-line env var strings
-  try {
-    const fixed = envVal.replace(/\r?\n/g, '\\n');
-    const obj = JSON.parse(fixed);
-    if (obj.private_key) obj.private_key = obj.private_key.replace(/\\n/g, '\n');
-    return obj;
-  } catch (e) {}
-
-  // 3. Handle unescaped backslashes
-  try {
-    const fixedEscapes = envVal
-      .replace(/\\/g, '\\\\')
-      .replace(/\\\\"/g, '\\"')
-      .replace(/\\\\n/g, '\\n')
-      .replace(/\\\\t/g, '\\t')
-      .replace(/\\\\r/g, '\\r');
-    const obj = JSON.parse(fixedEscapes);
-    if (obj.private_key) obj.private_key = obj.private_key.replace(/\\n/g, '\n');
-    return obj;
-  } catch (e) {}
-
-  // 4. Regex extraction fallback if JSON string has invalid escape characters from web paste
-  try {
-    const privateKeyMatch = envVal.match(/"private_key"\s*:\s*"([\s\S]*?)"\s*,\s*"client_email"/);
-    const clientEmailMatch = envVal.match(/"client_email"\s*:\s*"([^"]+)"/);
-    const projectIdMatch = envVal.match(/"project_id"\s*:\s*"([^"]+)"/);
-
-    if (clientEmailMatch && privateKeyMatch) {
-      return {
-        type: 'service_account',
-        project_id: projectIdMatch ? projectIdMatch[1] : 'smart-firmament-496107-b0',
-        private_key: privateKeyMatch[1].replace(/\\n/g, '\n').replace(/[\r\n]+/g, '\n'),
-        client_email: clientEmailMatch[1]
-      };
-    }
-  } catch (e) {}
-
-  throw new Error('Could not parse GOOGLE_CREDENTIALS_JSON');
-}
-
 async function getClient() {
   if (sheetsClient) return sheetsClient;
 
   let auth;
 
-  // Cloud deployment: parse credentials from environment variable
-  if (process.env.GOOGLE_CREDENTIALS_JSON) {
-    const credentials = parseEnvCredentials(process.env.GOOGLE_CREDENTIALS_JSON);
-    auth = new google.auth.GoogleAuth({
-      credentials,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
-  } else {
-    // Local development: read credentials from file
+  // Priority 1: Base64-encoded credentials (most reliable for cloud deployment)
+  if (process.env.GOOGLE_CREDENTIALS_BASE64) {
+    try {
+      const decoded = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf8');
+      const credentials = JSON.parse(decoded);
+      console.log('✅ Google credentials loaded from GOOGLE_CREDENTIALS_BASE64');
+      auth = new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+      });
+    } catch (err) {
+      console.error('Failed to parse GOOGLE_CREDENTIALS_BASE64:', err.message);
+    }
+  }
+
+  // Priority 2: Raw JSON string (may have escape issues from web paste)
+  if (!auth && process.env.GOOGLE_CREDENTIALS_JSON) {
+    try {
+      const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
+      if (credentials.private_key) {
+        credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+      }
+      console.log('✅ Google credentials loaded from GOOGLE_CREDENTIALS_JSON');
+      auth = new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+      });
+    } catch (err) {
+      console.error('Failed to parse GOOGLE_CREDENTIALS_JSON:', err.message);
+    }
+  }
+
+  // Priority 3: Local credentials file (development)
+  if (!auth) {
     const credentialsPath = path.resolve(
       __dirname,
       process.env.GOOGLE_APPLICATION_CREDENTIALS || 'credentials.json'
