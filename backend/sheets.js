@@ -76,6 +76,9 @@ async function getClient() {
   // Cloud deployment: parse credentials from environment variable
   if (process.env.GOOGLE_CREDENTIALS_JSON) {
     const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
+    if (credentials.private_key) {
+      credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+    }
     auth = new google.auth.GoogleAuth({
       credentials,
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
@@ -124,15 +127,45 @@ function rowToCustomer(row, rowIndex) {
 async function getAllRows() {
   if (!isGoogleConfigured()) return null;
   const client = await getClient();
-  const sheetName = process.env.SHEET_NAME || 'Sheet1';
   const spreadsheetId = process.env.SPREADSHEET_ID;
+  const configuredSheetName = process.env.SHEET_NAME;
 
-  const response = await client.spreadsheets.values.get({
-    spreadsheetId,
-    range: `'${sheetName}'!A:M`,
-  });
+  // Candidate tab names to try
+  const candidateNames = configuredSheetName
+    ? [configuredSheetName, configuredSheetName.trim(), `${configuredSheetName.trim()} `]
+    : [];
 
-  return response.data.values || [];
+  for (const name of candidateNames) {
+    try {
+      const response = await client.spreadsheets.values.get({
+        spreadsheetId,
+        range: `'${name}'!A:M`,
+      });
+      if (response.data.values && response.data.values.length > 0) {
+        return response.data.values;
+      }
+    } catch (e) {
+      // continue to next candidate
+    }
+  }
+
+  // Fallback: query spreadsheet metadata to get the first tab title
+  try {
+    const meta = await client.spreadsheets.get({ spreadsheetId });
+    if (meta.data.sheets && meta.data.sheets.length > 0) {
+      const firstTabName = meta.data.sheets[0].properties.title;
+      console.log(`Auto-detected sheet tab name: "${firstTabName}"`);
+      const response = await client.spreadsheets.values.get({
+        spreadsheetId,
+        range: `'${firstTabName}'!A:M`,
+      });
+      return response.data.values || [];
+    }
+  } catch (err) {
+    console.error('Failed to auto-detect sheet tabs:', err.message);
+  }
+
+  return [];
 }
 
 /**
