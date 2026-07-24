@@ -25,18 +25,32 @@ export function AuthProvider({ children }) {
     (async () => {
       try {
         const stored = await loadAuthData();
-        if (stored.refreshToken) {
-          // Attempt to get a fresh access token using stored refresh token
-          try {
-            const refreshed = await refreshSession(stored.refreshToken);
-            setUser(stored.user);
-            setToken(refreshed.token);
-            setRefreshToken(refreshed.refreshToken);
-            setAuthToken(refreshed.token);
-            await saveAuthData(refreshed.token, refreshed.refreshToken, stored.user);
-          } catch (_refreshErr) {
-            // Refresh token expired or invalid — require re-login
-            await clearAuthData();
+        if (stored.token && stored.user) {
+          // Instantly restore cached session
+          setUser(stored.user);
+          setToken(stored.token);
+          setRefreshToken(stored.refreshToken);
+          setAuthToken(stored.token);
+
+          // Background refresh token sync
+          if (stored.refreshToken) {
+            try {
+              const refreshed = await refreshSession(stored.refreshToken);
+              setUser(stored.user);
+              setToken(refreshed.token);
+              setRefreshToken(refreshed.refreshToken);
+              setAuthToken(refreshed.token);
+              await saveAuthData(refreshed.token, refreshed.refreshToken, stored.user);
+            } catch (refreshErr) {
+              // Only clear if server explicitly revoked (401), not network timeouts
+              if (refreshErr.message && refreshErr.message.includes('401')) {
+                await clearAuthData();
+                setUser(null);
+                setToken(null);
+                setRefreshToken(null);
+                setAuthToken(null);
+              }
+            }
           }
         }
       } catch (err) {

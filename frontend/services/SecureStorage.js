@@ -13,44 +13,55 @@ const KEYS = {
   USER_DATA: 'hansa_user_data',
 };
 
-// Web fallback (SecureStore is native-only)
-const memoryStore = {};
+// Web fallback using localStorage for true session persistence across page reloads
+const getWebStorage = () => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    return window.localStorage;
+  }
+  return null;
+};
 
 async function setItem(key, value) {
   try {
     if (Platform.OS === 'web') {
-      memoryStore[key] = value;
+      const ls = getWebStorage();
+      if (ls) ls.setItem(key, value);
     } else {
       await SecureStore.setItemAsync(key, value);
     }
   } catch (err) {
     console.warn('SecureStorage.setItem failed:', err.message);
-    memoryStore[key] = value; // fallback
+    const ls = getWebStorage();
+    if (ls) ls.setItem(key, value);
   }
 }
 
 async function getItem(key) {
   try {
     if (Platform.OS === 'web') {
-      return memoryStore[key] || null;
+      const ls = getWebStorage();
+      return ls ? ls.getItem(key) : null;
     }
     return await SecureStore.getItemAsync(key);
   } catch (err) {
     console.warn('SecureStorage.getItem failed:', err.message);
-    return memoryStore[key] || null;
+    const ls = getWebStorage();
+    return ls ? ls.getItem(key) : null;
   }
 }
 
 async function deleteItem(key) {
   try {
     if (Platform.OS === 'web') {
-      delete memoryStore[key];
+      const ls = getWebStorage();
+      if (ls) ls.removeItem(key);
     } else {
       await SecureStore.deleteItemAsync(key);
     }
   } catch (err) {
     console.warn('SecureStorage.deleteItem failed:', err.message);
-    delete memoryStore[key];
+    const ls = getWebStorage();
+    if (ls) ls.removeItem(key);
   }
 }
 
