@@ -38,6 +38,8 @@ export default function CustomerListScreen({ navigation }) {
   
   // Mobile drawer modal state
   const [showComplaintsDrawer, setShowComplaintsDrawer] = useState(false);
+  const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
+  const [historySearchQuery, setHistorySearchQuery] = useState('');
 
   useEffect(() => {
     loadData();
@@ -125,6 +127,59 @@ export default function CustomerListScreen({ navigation }) {
     !c.forField.toLowerCase().startsWith('upi')
   );
 
+  // Aggregate payment records across all accounts for Home Screen History
+  const getAllPayments = () => {
+    const records = [];
+    allCustomers.forEach(c => {
+      if (c.paymentHistory && c.paymentHistory.length > 0) {
+        c.paymentHistory.forEach(ph => {
+          records.push({
+            ...ph,
+            username: c.username,
+            mobile: c.mobile,
+            rowIndex: c.rowIndex,
+          });
+        });
+      } else if (c.bank > 0 || c.cash > 0 || c.transactionId) {
+        if (c.bank > 0) {
+          records.push({
+            id: `bank_${c.rowIndex}`,
+            username: c.username,
+            mobile: c.mobile,
+            date: c.date1 || 'Recent',
+            mode: 'BANK',
+            amount: c.bank,
+            discount: c.discount || 0,
+            transactionId: c.transactionId || 'SHEET_REC',
+            notes: 'Bank / UPI Payment',
+          });
+        }
+        if (c.cash > 0) {
+          records.push({
+            id: `cash_${c.rowIndex}`,
+            username: c.username,
+            mobile: c.mobile,
+            date: c.date1 || 'Recent',
+            mode: 'CASH',
+            amount: c.cash,
+            discount: 0,
+            transactionId: 'CASH_PAYMENT',
+            notes: 'Cash Collection',
+          });
+        }
+      }
+    });
+
+    if (!historySearchQuery.trim()) return records;
+    const term = historySearchQuery.toLowerCase().trim();
+    return records.filter(r =>
+      (r.username || '').toLowerCase().includes(term) ||
+      (r.transactionId || '').toLowerCase().includes(term) ||
+      (r.mode || '').toLowerCase().includes(term) ||
+      (r.date || '').toLowerCase().includes(term)
+    );
+  };
+
   const getStatusColor = (balance) => {
     if (balance <= 0) return '#059669';
     return '#DC2626';
@@ -198,6 +253,14 @@ export default function CustomerListScreen({ navigation }) {
             <Text style={styles.headerSub}>Welcome, {user?.displayName || 'User'}</Text>
           </View>
           <View style={styles.headerActionRow}>
+            {/* Payment History Button */}
+            <TouchableOpacity 
+              style={[styles.complaintsBtn, { backgroundColor: 'rgba(59,130,246,0.2)', borderColor: 'rgba(59,130,246,0.3)' }]} 
+              onPress={() => { Vibration.vibrate(20); setShowHistoryDrawer(true); }}
+            >
+              <Text style={styles.complaintsBtnText}>📜 History</Text>
+            </TouchableOpacity>
+
             {/* complaints badge button */}
             <TouchableOpacity 
               style={[styles.complaintsBtn, activeComplaints.length > 0 && styles.complaintsBtnActive]} 
@@ -311,6 +374,15 @@ export default function CustomerListScreen({ navigation }) {
           >
             <Text style={[styles.tabText, activeFilter === 'PAID' && styles.tabTextGreenActive]}>
               🟢 Settled ({allCustomers.length - overdueCount})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tab, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}
+            onPress={() => { Vibration.vibrate(20); setShowHistoryDrawer(true); }}
+          >
+            <Text style={[styles.tabText, { color: '#1D4ED8', fontWeight: '700' }]}>
+              📜 History
             </Text>
           </TouchableOpacity>
         </View>
@@ -427,6 +499,139 @@ export default function CustomerListScreen({ navigation }) {
                     </TouchableOpacity>
                   );
                 })
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MOBILE-NATIVE PAYMENT HISTORY MODAL SHEET */}
+      <Modal 
+        visible={showHistoryDrawer} 
+        animationType="slide" 
+        transparent={true}
+        onRequestClose={() => setShowHistoryDrawer(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <TouchableOpacity 
+            style={styles.modalDismissArea} 
+            activeOpacity={1} 
+            onPress={() => setShowHistoryDrawer(false)} 
+          />
+          <View style={[styles.modalSheet, { maxHeight: '85%' }]}>
+            {/* Drag Handle indicator */}
+            <View style={styles.dragHandle} />
+            
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>📜 Payment History Log</Text>
+                <Text style={styles.modalSubTitle}>Transactions collected across all accounts</Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.modalCloseBtn}
+                onPress={() => setShowHistoryDrawer(false)}
+              >
+                <Text style={styles.modalCloseText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Search Input for History */}
+            <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+              <TextInput
+                style={{
+                  backgroundColor: '#F1F5F9',
+                  borderRadius: 10,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  fontSize: 14,
+                  color: '#0F172A',
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                }}
+                placeholder="Filter by Username, Txn ID, Date..."
+                placeholderTextColor="#94A3B8"
+                value={historySearchQuery}
+                onChangeText={setHistorySearchQuery}
+              />
+            </View>
+
+            {/* scrollable payment history list */}
+            <ScrollView contentContainerStyle={styles.modalScroll}>
+              {getAllPayments().length === 0 ? (
+                <View style={styles.modalEmptyBox}>
+                  <Text style={styles.modalEmptyEmoji}>💳</Text>
+                  <Text style={styles.modalEmptyText}>No payment history records found.</Text>
+                </View>
+              ) : (
+                getAllPayments().map((item, idx) => (
+                  <TouchableOpacity
+                    key={item.id || idx}
+                    activeOpacity={0.8}
+                    style={{
+                      backgroundColor: '#FFFFFF',
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: '#E2E8F0',
+                      padding: 14,
+                      marginBottom: 10,
+                    }}
+                    onPress={() => {
+                      if (item.rowIndex) {
+                        setShowHistoryDrawer(false);
+                        const targetCust = allCustomers.find(c => c.rowIndex === item.rowIndex);
+                        if (targetCust) {
+                          navigation.navigate('CustomerDetail', { customer: targetCust });
+                        }
+                      }
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A' }}>{item.username}</Text>
+                      <View style={{
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderRadius: 6,
+                        backgroundColor: item.mode === 'CASH' ? '#ECFDF5' : '#EFF6FF',
+                      }}>
+                        <Text style={{
+                          fontSize: 11,
+                          fontWeight: '700',
+                          color: item.mode === 'CASH' ? '#059669' : '#1D4ED8',
+                        }}>
+                          {item.mode === 'CASH' ? '💵 CASH' : '🏦 BANK / UPI'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <Text style={{ fontSize: 18, fontWeight: '800', color: '#059669' }}>
+                        {formatCurrency(item.amount)}
+                      </Text>
+                      <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '500' }}>
+                        📅 {item.date}
+                      </Text>
+                    </View>
+
+                    <View style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      borderTopWidth: 1,
+                      borderTopColor: '#F1F5F9',
+                      paddingTop: 6,
+                    }}>
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: '#1E3A8A' }}>
+                        Txn ID (Col N): {item.transactionId || 'N/A'}
+                      </Text>
+                      {item.discount > 0 && (
+                        <Text style={{ fontSize: 11, color: '#D97706', fontWeight: '600' }}>
+                          Disc: {formatCurrency(item.discount)}
+                        </Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))
               )}
             </ScrollView>
           </View>
