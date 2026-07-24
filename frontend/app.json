@@ -23,6 +23,12 @@
     },
     "plugins": [
       "expo-asset"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "6fd53b8a-7574-4ea8-9a24-05d5650cb4ae"
+      }
+    },
+    "owner": "hansab"
   }
 }
