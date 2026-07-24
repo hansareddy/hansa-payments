@@ -264,6 +264,8 @@ async function getAllCustomers() {
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
         if (row && row.length > 0 && (row[COL.USERNAME] || row[COL.MOBILE])) {
+          // Skip header row if present so rowIndex matches exact physical sheet row
+          if (row[COL.USERNAME] && row[COL.USERNAME].toLowerCase().trim() === 'username') continue;
           customers.push(rowToCustomer(row, i + 1));
         }
       }
