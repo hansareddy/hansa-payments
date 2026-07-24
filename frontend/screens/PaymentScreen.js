@@ -1,6 +1,7 @@
 /**
  * PaymentScreen - Record Transactions
  * Support recording optional discounts that update the sheet F (DISCOUNT) column.
+ * Transaction ID is written to column N of the sheet.
  */
 
 import React, { useState } from 'react';
@@ -17,8 +18,6 @@ import {
   StatusBar,
   Vibration,
   Image,
-  Modal,
-  FlatList,
 } from 'react-native';
 import { recordPayment } from '../services/api';
 import { enqueue, isNetworkError } from '../services/OfflineQueue';
@@ -29,22 +28,17 @@ export default function PaymentScreen({ route, navigation }) {
   const [paymentMode, setPaymentMode] = useState(null); // 'CASH' | 'GPAY' | 'PHONEPE' | 'PAYTM'
   const [amount, setAmount] = useState('');
   const [discount, setDiscount] = useState('');
+  const [transactionId, setTransactionId] = useState('');
   
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [showCalendar, setShowCalendar] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [updatedCustomer, setUpdatedCustomer] = useState(null);
 
-  const MONTHS = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-
-  const getFormattedDateString = (date) => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
+  const getTodayString = () => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
   };
 
@@ -80,7 +74,7 @@ export default function PaymentScreen({ route, navigation }) {
     Vibration.vibrate(30);
 
     const displayMode = paymentMode === 'CASH' ? 'Cash' : `UPI (${paymentMode})`;
-    const dateStr = getFormattedDateString(selectedDate);
+    const dateStr = getTodayString();
 
     const confirmationMsg = discountVal > 0 
       ? `Record ${displayMode} collection of ${formatCurrency(parseFloat(amount))} with a ${formatCurrency(discountVal)} discount for ${customer.username}?`
@@ -108,7 +102,7 @@ export default function PaymentScreen({ route, navigation }) {
                   paymentMode: apiMode,
                   paymentAmount: parseFloat(amount),
                   discount: discountVal,
-                  renewDate: dateStr,
+                  transactionId: transactionId.trim(),
                   notes: notes,
                 };
 
@@ -124,7 +118,7 @@ export default function PaymentScreen({ route, navigation }) {
                     paymentMode: paymentMode === 'CASH' ? 'CASH' : 'BANK',
                     paymentAmount: parseFloat(amount),
                     discount: discountVal,
-                    renewDate: dateStr,
+                    transactionId: transactionId.trim(),
                     notes: paymentMode === 'CASH' ? 'CASH payment' : `UPI: ${paymentMode}`,
                   };
                   await enqueue(payload, customer.username);
@@ -138,6 +132,7 @@ export default function PaymentScreen({ route, navigation }) {
                     balance: newBal,
                     discount: (customer.discount || 0) + discountVal,
                     date1: dateStr,
+                    transactionId: transactionId.trim(),
                     isOffline: true,
                   });
                   setSuccess(true);
@@ -150,97 +145,6 @@ export default function PaymentScreen({ route, navigation }) {
           },
         },
       ]
-    );
-  };
-
-  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
-  const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
-
-  const changeMonth = (direction) => {
-    let newMonth = calendarMonth + direction;
-    let newYear = calendarYear;
-    if (newMonth < 0) {
-      newMonth = 11;
-      newYear -= 1;
-    } else if (newMonth > 11) {
-      newMonth = 0;
-      newYear += 1;
-    }
-    setCalendarMonth(newMonth);
-    setCalendarYear(newYear);
-  };
-
-  const renderCalendarModal = () => {
-    const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
-    const firstDayIndex = new Date(calendarYear, calendarMonth, 1).getDay();
-    
-    const daysArray = [];
-    for (let i = 0; i < firstDayIndex; i++) {
-      daysArray.push(null);
-    }
-    for (let i = 1; i <= daysInMonth; i++) {
-      daysArray.push(i);
-    }
-
-    return (
-      <Modal visible={showCalendar} transparent={true} animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.calendarContainer}>
-            <View style={styles.calendarHeader}>
-              <TouchableOpacity onPress={() => changeMonth(-1)} style={styles.arrowBtn}>
-                <Text style={styles.arrowText}>◀</Text>
-              </TouchableOpacity>
-              <Text style={styles.monthLabel}>
-                {MONTHS[calendarMonth]} {calendarYear}
-              </Text>
-              <TouchableOpacity onPress={() => changeMonth(1)} style={styles.arrowBtn}>
-                <Text style={styles.arrowText}>▶</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.weekdaysRow}>
-              {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d, index) => (
-                <Text key={index} style={styles.weekdayHeader}>{d}</Text>
-              ))}
-            </View>
-
-            <FlatList
-              data={daysArray}
-              numColumns={7}
-              keyExtractor={(item, idx) => String(idx)}
-              renderItem={({ item }) => {
-                if (item === null) return <View style={styles.emptyDay} />;
-                
-                const isSelected = selectedDate.getDate() === item && 
-                                   selectedDate.getMonth() === calendarMonth && 
-                                   selectedDate.getFullYear() === calendarYear;
-                
-                return (
-                  <TouchableOpacity
-                    style={[styles.dayCell, isSelected && styles.selectedDayCell]}
-                    onPress={() => {
-                      Vibration.vibrate(20);
-                      setSelectedDate(new Date(calendarYear, calendarMonth, item));
-                      setShowCalendar(false);
-                    }}
-                  >
-                    <Text style={[styles.dayText, isSelected && styles.selectedDayText]}>
-                      {item}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              }}
-            />
-
-            <TouchableOpacity 
-              style={styles.closeCalendarBtn}
-              onPress={() => setShowCalendar(false)}
-            >
-              <Text style={styles.closeCalendarText}>CANCEL</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     );
   };
 
@@ -272,9 +176,15 @@ export default function PaymentScreen({ route, navigation }) {
               <Text style={styles.summaryVal}>{formatCurrency(updatedCustomer.discount)}</Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Next Billing Date</Text>
+              <Text style={styles.summaryLabel}>Payment Date</Text>
               <Text style={styles.summaryVal}>{updatedCustomer.date1}</Text>
             </View>
+            {transactionId.trim() ? (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Transaction ID</Text>
+                <Text style={styles.summaryVal}>{transactionId.trim()}</Text>
+              </View>
+            ) : null}
           </View>
 
           <TouchableOpacity
@@ -383,19 +293,32 @@ export default function PaymentScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* Renew Date */}
+        {/* Transaction ID */}
         <View style={styles.stepCard}>
-          <Text style={styles.stepTitle}>Billing Renewal Target Date</Text>
-          <TouchableOpacity 
-            style={styles.dateSelectorBtn} 
-            onPress={() => { Vibration.vibrate(20); setShowCalendar(true); }}
-          >
+          <Text style={styles.stepTitle}>Transaction ID (Optional)</Text>
+          <View style={styles.txnIdBox}>
+            <Text style={styles.txnIdIcon}>🧾</Text>
+            <TextInput
+              style={styles.txnIdInput}
+              placeholder="e.g. UPI ref number, receipt no."
+              placeholderTextColor="#94A3B8"
+              value={transactionId}
+              onChangeText={setTransactionId}
+              autoCapitalize="characters"
+            />
+          </View>
+        </View>
+
+        {/* Today's Date (read-only) */}
+        <View style={styles.stepCard}>
+          <Text style={styles.stepTitle}>Payment Date</Text>
+          <View style={styles.dateSelectorBtn}>
             <Text style={styles.dateSelectorIcon}>📅</Text>
             <Text style={styles.dateSelectorText}>
-              {getFormattedDateString(selectedDate)}
+              {getTodayString()}
             </Text>
-            <Text style={styles.changeDateHint}>Change Date</Text>
-          </TouchableOpacity>
+            <Text style={styles.todayBadge}>Today</Text>
+          </View>
         </View>
 
         {/* Submit */}
@@ -411,9 +334,6 @@ export default function PaymentScreen({ route, navigation }) {
           )}
         </TouchableOpacity>
       </ScrollView>
-
-      {/* Render Calendar Modal */}
-      {renderCalendarModal()}
     </View>
   );
 }
@@ -572,6 +492,27 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     outlineStyle: 'none',
   },
+  txnIdBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 14,
+    height: 52,
+  },
+  txnIdIcon: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  txnIdInput: {
+    flex: 1,
+    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '600',
+    outlineStyle: 'none',
+  },
   dateSelectorBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -593,10 +534,15 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     flex: 1,
   },
-  changeDateHint: {
+  todayBadge: {
     fontSize: 12,
-    color: '#1E3A8A',
-    fontWeight: '600',
+    color: '#059669',
+    fontWeight: '700',
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    overflow: 'hidden',
   },
   submitBtn: {
     backgroundColor: '#1E3A8A',
@@ -616,91 +562,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: 0.2,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  calendarContainer: {
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 18,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  calendarHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  arrowBtn: {
-    padding: 8,
-  },
-  arrowText: {
-    fontSize: 16,
-    color: '#0F172A',
-    fontWeight: '600',
-  },
-  monthLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0F172A',
-  },
-  weekdaysRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 8,
-  },
-  weekdayHeader: {
-    width: 32,
-    textAlign: 'center',
-    fontSize: 12,
-    color: '#94A3B8',
-    fontWeight: '600',
-  },
-  dayCell: {
-    flex: 1,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    margin: 1,
-    borderRadius: 4,
-  },
-  selectedDayCell: {
-    backgroundColor: '#1E3A8A',
-  },
-  emptyDay: {
-    flex: 1,
-    margin: 1,
-  },
-  dayText: {
-    fontSize: 14,
-    color: '#334155',
-    fontWeight: '600',
-  },
-  selectedDayText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  closeCalendarBtn: {
-    marginTop: 14,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  closeCalendarText: {
-    color: '#EF4444',
-    fontWeight: '600',
-    fontSize: 13,
   },
   successContainer: {
     flexGrow: 1,
@@ -784,3 +645,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+

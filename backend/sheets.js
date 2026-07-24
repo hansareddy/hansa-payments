@@ -23,7 +23,11 @@ const COL = {
   DATE1: 10,
   DATE2: 11,
   FOR: 12,
+  TRANSACTION_ID: 13,
 };
+
+// Cached resolved sheet tab name (detected once, reused for all reads+writes)
+let _resolvedSheetName = null;
 
 // Sample ledger data parsed from SAGAR 2022 PDF for instant availability
 let localLedger = [
@@ -143,48 +147,70 @@ function rowToCustomer(row, rowIndex) {
     date1: (row[COL.DATE1] || '').trim(),
     date2: (row[COL.DATE2] || '').trim(),
     forField: (row[COL.FOR] || '').trim(),
+    transactionId: (row[COL.TRANSACTION_ID] || '').trim(),
   };
+}
+
+/**
+ * Resolve the actual sheet tab name once, then cache it for all future reads+writes.
+ * This fixes the bug where reads succeed (via auto-detect) but writes fail (hardcoded name).
+ */
+async function resolveSheetName() {
+  if (_resolvedSheetName) return _resolvedSheetName;
+
+  const client = await getClient();
+  const spreadsheetId = process.env.SPREADSHEET_ID;
+  const configuredName = process.env.SHEET_NAME;
+
+  // Try the configured name first
+  if (configuredName) {
+    for (const name of [configuredName, configuredName.trim()]) {
+      try {
+        const response = await client.spreadsheets.values.get({
+          spreadsheetId,
+          range: `'${name}'!A1:A1`,
+        });
+        _resolvedSheetName = name;
+        console.log(`✅ Sheet tab resolved to configured name: "${name}"`);
+        return _resolvedSheetName;
+      } catch (e) {
+        // continue
+      }
+    }
+  }
+
+  // Fallback: auto-detect first tab from spreadsheet metadata
+  try {
+    const meta = await client.spreadsheets.get({ spreadsheetId });
+    if (meta.data.sheets && meta.data.sheets.length > 0) {
+      _resolvedSheetName = meta.data.sheets[0].properties.title;
+      console.log(`✅ Sheet tab auto-detected: "${_resolvedSheetName}"`);
+      return _resolvedSheetName;
+    }
+  } catch (err) {
+    console.error('Failed to auto-detect sheet tab:', err.message);
+  }
+
+  // Last resort fallback
+  _resolvedSheetName = 'Sheet1';
+  console.warn('⚠️ Using fallback sheet name: "Sheet1"');
+  return _resolvedSheetName;
 }
 
 async function getAllRows() {
   if (!isGoogleConfigured()) return null;
   const client = await getClient();
   const spreadsheetId = process.env.SPREADSHEET_ID;
-  const configuredSheetName = process.env.SHEET_NAME;
+  const sheetName = await resolveSheetName();
 
-  // Candidate tab names to try
-  const candidateNames = configuredSheetName
-    ? [configuredSheetName, configuredSheetName.trim(), `${configuredSheetName.trim()} `]
-    : [];
-
-  for (const name of candidateNames) {
-    try {
-      const response = await client.spreadsheets.values.get({
-        spreadsheetId,
-        range: `'${name}'!A:M`,
-      });
-      if (response.data.values && response.data.values.length > 0) {
-        return response.data.values;
-      }
-    } catch (e) {
-      // continue to next candidate
-    }
-  }
-
-  // Fallback: query spreadsheet metadata to get the first tab title
   try {
-    const meta = await client.spreadsheets.get({ spreadsheetId });
-    if (meta.data.sheets && meta.data.sheets.length > 0) {
-      const firstTabName = meta.data.sheets[0].properties.title;
-      console.log(`Auto-detected sheet tab name: "${firstTabName}"`);
-      const response = await client.spreadsheets.values.get({
-        spreadsheetId,
-        range: `'${firstTabName}'!A:M`,
-      });
-      return response.data.values || [];
-    }
+    const response = await client.spreadsheets.values.get({
+      spreadsheetId,
+      range: `'${sheetName}'!A:N`,
+    });
+    return response.data.values || [];
   } catch (err) {
-    console.error('Failed to auto-detect sheet tabs:', err.message);
+    console.error('Failed to read sheet data:', err.message);
   }
 
   return [];
@@ -238,16 +264,22 @@ async function getCustomerByRow(rowIndex) {
 
 /**
  * Record a payment and update row.
+ * Date is always set to today's date (column K).
+ * Transaction ID is written to column N.
  */
-async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmount = 0, renewDate, notes) {
+async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmount = 0, transactionId = '', notes = '') {
   const index = parseInt(rowIndex, 10);
   const discountVal = parseFloat(discountAmount) || 0;
+
+  // Always use today's date
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   // If Google API is configured, write back to Google Sheet
   if (isGoogleConfigured()) {
     try {
       const client = await getClient();
-      const sheetName = process.env.SHEET_NAME || 'Sheet1';
+      const sheetName = await resolveSheetName();
       const spreadsheetId = process.env.SPREADSHEET_ID;
 
       const current = await getCustomerByRow(index);
@@ -266,18 +298,21 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
       const totalPaid = newBank + newCash;
       const newBalance = current.due - totalPaid + current.charges - newDiscount;
 
-      // Update F (DISCOUNT), G (CHARGES), H (BANK), I (CASH), J (BALANCE), K (DATE1), L (DATE2), M (FOR ?)
-      const updateRange = `'${sheetName}'!F${index}:M${index}`;
+      // Update F-N: DISCOUNT, CHARGES, BANK, CASH, BALANCE, DATE1, DATE2, FOR, TRANSACTION_ID
+      const updateRange = `'${sheetName}'!F${index}:N${index}`;
       const values = [[
         newDiscount || 0,
         current.charges || 0,
         newBank || 0,
         newCash || 0,
         newBalance,
-        renewDate || current.date1,
+        todayStr,
         current.date2,
-        current.forField || '' // Preserve existing complaints/notes exactly
+        current.forField || '',
+        transactionId || current.transactionId || ''
       ]];
+
+      console.log(`📝 Writing payment to sheet "${sheetName}" row ${index}: mode=${paymentMode}, amount=${paymentAmount}, txnId=${transactionId}`);
 
       await client.spreadsheets.values.update({
         spreadsheetId,
@@ -286,9 +321,13 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
         requestBody: { values },
       });
 
+      console.log(`✅ Payment written to Google Sheet row ${index}`);
+      // Clear cached data so next read fetches fresh
       return await getCustomerByRow(index);
     } catch (err) {
-      console.warn('Google Sheet update error, updating local copy:', err.message);
+      console.error('❌ Google Sheet update error:', err.message);
+      // Re-throw so the API returns an error instead of silently using local fallback
+      throw err;
     }
   }
 
@@ -305,8 +344,8 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
   customer.discount += discountVal;
   const totalPaid = customer.bank + customer.cash;
   customer.balance = customer.due - totalPaid + customer.charges - customer.discount;
-  if (renewDate) customer.date1 = renewDate;
-  // Preserve customer.forField (no changes to notes)
+  customer.date1 = todayStr;
+  if (transactionId) customer.transactionId = transactionId;
 
   return customer;
 }
@@ -333,10 +372,10 @@ async function addCustomer(customerData) {
   if (isGoogleConfigured()) {
     try {
       const client = await getClient();
-      const sheetName = process.env.SHEET_NAME || 'Sheet1';
+      const sheetName = await resolveSheetName();
       const spreadsheetId = process.env.SPREADSHEET_ID;
 
-      // Values array mapping columns A to M
+      // Values array mapping columns A to N
       const rowValues = [
         username || '',
         mobile || '',
@@ -350,12 +389,13 @@ async function addCustomer(customerData) {
         balance, // BALANCE
         renewDate, // DATE1
         '', // DATE2
-        'New account created' // FOR ?
+        'New account created', // FOR ?
+        '' // TRANSACTION_ID
       ];
 
       await client.spreadsheets.values.append({
         spreadsheetId,
-        range: `'${sheetName}'!A:M`,
+        range: `'${sheetName}'!A:N`,
         valueInputOption: 'USER_ENTERED',
         requestBody: {
           values: [rowValues],
@@ -414,7 +454,7 @@ async function updateComplaint(rowIndex, urgent, complaint) {
   if (isGoogleConfigured()) {
     try {
       const client = await getClient();
-      const sheetName = process.env.SHEET_NAME || 'Sheet1';
+      const sheetName = await resolveSheetName();
       const spreadsheetId = process.env.SPREADSHEET_ID;
 
       // Update Column M (FOR ?) - index 13 corresponding to column M

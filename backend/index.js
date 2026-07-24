@@ -293,7 +293,7 @@ app.get('/api/customers/:rowIndex', async (req, res) => {
 
 app.post('/api/payments', async (req, res) => {
   try {
-    const { rowIndex, paymentMode, paymentAmount, renewDate } = req.body;
+    const { rowIndex, paymentMode, paymentAmount, transactionId } = req.body;
 
     if (!rowIndex || !paymentMode || paymentAmount === undefined) {
       return res.status(400).json({
@@ -317,7 +317,7 @@ app.post('/api/payments', async (req, res) => {
       paymentMode.toUpperCase(),
       amount,
       discount,
-      renewDate
+      transactionId || ''
     );
 
     invalidateCache(); // bust cache after write
