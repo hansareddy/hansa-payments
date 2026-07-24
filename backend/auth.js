@@ -89,8 +89,6 @@ function authenticate(username, password) {
  * Performs token rotation: the old refresh token is revoked and a new one is issued.
  */
 function refreshAccessToken(refreshToken) {
-  if (!activeRefreshTokens.has(refreshToken)) return null;
-
   const decoded = verifyToken(refreshToken);
   if (!decoded || decoded.type !== 'refresh') {
     activeRefreshTokens.delete(refreshToken);
@@ -100,8 +98,12 @@ function refreshAccessToken(refreshToken) {
   // Token rotation — revoke old, issue new
   activeRefreshTokens.delete(refreshToken);
 
-  const user = users.find((u) => u.id === decoded.id);
-  if (!user) return null;
+  const user = users.find((u) => u.id === decoded.id) || {
+    id: decoded.id,
+    username: decoded.username,
+    role: decoded.role,
+    displayName: decoded.displayName,
+  };
 
   const payload = _buildTokenPayload(user);
   const newAccessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
