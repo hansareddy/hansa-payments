@@ -285,22 +285,35 @@ export default function CustomerListScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Stats Grid */}
+        {/* Interactive Stats Grid */}
         <View style={styles.statsCard}>
-          <View style={styles.statItem}>
+          <TouchableOpacity 
+            style={[styles.statItem, activeFilter === 'ALL' && { opacity: 1 }]} 
+            onPress={() => { Vibration.vibrate(15); setActiveFilter('ALL'); }}
+          >
             <Text style={styles.statVal}>{totalCount}</Text>
             <Text style={styles.statLabel}>ACCOUNTS</Text>
-          </View>
+          </TouchableOpacity>
+          
           <View style={styles.statDivider} />
-          <View style={styles.statItem}>
+          
+          <TouchableOpacity 
+            style={styles.statItem} 
+            onPress={() => { Vibration.vibrate(15); setActiveFilter('OVERDUE'); }}
+          >
             <Text style={[styles.statVal, { color: '#FCA5A5' }]}>{overdueCount}</Text>
             <Text style={styles.statLabel}>OVERDUE</Text>
-          </View>
+          </TouchableOpacity>
+          
           <View style={styles.statDivider} />
-          <View style={styles.statItem}>
+          
+          <TouchableOpacity 
+            style={styles.statItem} 
+            onPress={() => { Vibration.vibrate(15); setActiveFilter('OVERDUE'); }}
+          >
             <Text style={[styles.statVal, { color: '#A7F3D0' }]}>{formatCurrency(totalBalanceDue)}</Text>
             <Text style={styles.statLabel}>TOTAL DUE</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Offline Sync Banner */}
