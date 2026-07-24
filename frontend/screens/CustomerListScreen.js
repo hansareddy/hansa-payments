@@ -361,25 +361,34 @@ export default function CustomerListScreen({ navigation }) {
 
       {/* Controls Container */}
       <View style={styles.controlsContainer}>
-        <View style={styles.searchBar}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search name, mobile, or IP..."
-            placeholderTextColor="#94A3B8"
-            value={query}
-            onChangeText={setQuery}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {query.length > 0 && (
-            <TouchableOpacity onPress={handleClear} style={styles.clearBtn}>
-              <Text style={styles.clearBtnText}>✕</Text>
-            </TouchableOpacity>
-          )}
+        <View style={styles.searchRow}>
+          <View style={styles.searchBar}>
+            <Text style={styles.searchIcon}>🔍</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search name, mobile, or IP..."
+              placeholderTextColor="#94A3B8"
+              value={query}
+              onChangeText={setQuery}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {query.length > 0 && (
+              <TouchableOpacity onPress={handleClear} style={styles.clearBtn}>
+                <Text style={styles.clearBtnText}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={styles.historyBtnPill}
+            onPress={() => { Vibration.vibrate(20); setShowHistoryDrawer(true); }}
+          >
+            <Text style={styles.historyBtnPillText}>📜 History</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* filter tabs */}
+        {/* filter tabs (3 clean equal tabs) */}
         <View style={styles.tabsRow}>
           <TouchableOpacity
             style={[styles.tab, activeFilter === 'ALL' && styles.tabActive]}
@@ -405,15 +414,6 @@ export default function CustomerListScreen({ navigation }) {
           >
             <Text style={[styles.tabText, activeFilter === 'PAID' && styles.tabTextGreenActive]}>
               🟢 Settled ({allCustomers.length - overdueCount})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tab, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}
-            onPress={() => { Vibration.vibrate(20); setShowHistoryDrawer(true); }}
-          >
-            <Text style={[styles.tabText, { color: '#1D4ED8', fontWeight: '700' }]}>
-              📜 History
             </Text>
           </TouchableOpacity>
         </View>
@@ -793,7 +793,13 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 6,
   },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   searchBar: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
@@ -801,7 +807,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingHorizontal: 12,
-    height: 46,
+    height: 44,
+  },
+  historyBtnPill: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 10,
+    height: 44,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  historyBtnPillText: {
+    color: '#1D4ED8',
+    fontWeight: '700',
+    fontSize: 13,
   },
   searchIcon: {
     fontSize: 15,
