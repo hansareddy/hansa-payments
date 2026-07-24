@@ -41,6 +41,7 @@ let nextId = 2;
 // ---------------------------------------------------------------------------
 
 const activeRefreshTokens = new Map(); // refreshToken → userId
+const recentlyRotatedTokens = new Map(); // refreshToken → { result, timestamp }
 
 // ---------------------------------------------------------------------------
 // Core auth functions
@@ -86,9 +87,17 @@ function authenticate(username, password) {
 
 /**
  * Use a valid refresh token to get a new access token.
- * Performs token rotation: the old refresh token is revoked and a new one is issued.
+ * Includes a 60s grace period for concurrent requests/race conditions.
  */
 function refreshAccessToken(refreshToken) {
+  if (recentlyRotatedTokens.has(refreshToken)) {
+    const cached = recentlyRotatedTokens.get(refreshToken);
+    if (Date.now() - cached.timestamp < 60000) {
+      return cached.result;
+    }
+    recentlyRotatedTokens.delete(refreshToken);
+  }
+
   const decoded = verifyToken(refreshToken);
   if (!decoded || decoded.type !== 'refresh') {
     activeRefreshTokens.delete(refreshToken);
@@ -115,11 +124,15 @@ function refreshAccessToken(refreshToken) {
 
   activeRefreshTokens.set(newRefreshToken, user.id);
 
-  return {
+  const result = {
     token: newAccessToken,
     refreshToken: newRefreshToken,
     expiresIn: 900,
   };
+
+  recentlyRotatedTokens.set(refreshToken, { result, timestamp: Date.now() });
+
+  return result;
 }
 
 /**
