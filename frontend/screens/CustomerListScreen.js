@@ -253,14 +253,6 @@ export default function CustomerListScreen({ navigation }) {
             <Text style={styles.headerSub}>Welcome, {user?.displayName || 'User'}</Text>
           </View>
           <View style={styles.headerActionRow}>
-            {/* Payment History Button */}
-            <TouchableOpacity 
-              style={[styles.complaintsBtn, { backgroundColor: 'rgba(59,130,246,0.2)', borderColor: 'rgba(59,130,246,0.3)' }]} 
-              onPress={() => { Vibration.vibrate(20); setShowHistoryDrawer(true); }}
-            >
-              <Text style={styles.complaintsBtnText}>📜 History</Text>
-            </TouchableOpacity>
-
             {/* complaints badge button */}
             <TouchableOpacity 
               style={[styles.complaintsBtn, activeComplaints.length > 0 && styles.complaintsBtnActive]} 
@@ -289,13 +281,6 @@ export default function CustomerListScreen({ navigation }) {
               }}
             >
               <Text style={styles.addBtnText}>+ ADD</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.complaintsBtn, { backgroundColor: 'rgba(239,68,68,0.15)', borderColor: 'rgba(239,68,68,0.25)' }]} 
-              onPress={() => { Vibration.vibrate(20); logout(); }}
-            >
-              <Text style={styles.complaintsBtnText}>↪</Text>
             </TouchableOpacity>
           </View>
         </View>
