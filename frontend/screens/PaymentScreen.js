@@ -103,6 +103,7 @@ export default function PaymentScreen({ route, navigation }) {
 
                 const payload = {
                   rowIndex: customer.rowIndex,
+                  username: customer.username,
                   paymentMode: apiMode,
                   paymentAmount: parseFloat(amount),
                   discount: discountVal,

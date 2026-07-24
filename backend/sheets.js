@@ -294,11 +294,19 @@ async function searchCustomers(query) {
 }
 
 /**
- * Get a single customer by row index.
+ * Get a single customer by row index or username (with fail-safe fallback).
  */
-async function getCustomerByRow(rowIndex) {
+async function getCustomerByRow(rowIndex, username = null) {
   const all = await getAllCustomers();
-  return all.find(c => c.rowIndex === parseInt(rowIndex, 10)) || null;
+  const idx = parseInt(rowIndex, 10);
+
+  if (username && String(username).trim()) {
+    const cleanUser = String(username).toLowerCase().trim();
+    const matchUser = all.find(c => c.username && c.username.toLowerCase().trim() === cleanUser);
+    if (matchUser) return matchUser;
+  }
+
+  return all.find(c => c.rowIndex === idx) || null;
 }
 
 /**
@@ -306,8 +314,7 @@ async function getCustomerByRow(rowIndex) {
  * Date is always set to today's date (column K).
  * Transaction ID is written to column N.
  */
-async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmount = 0, transactionId = '', notes = '') {
-  const index = parseInt(rowIndex, 10);
+async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmount = 0, transactionId = '', notes = '', targetUsername = '') {
   const discountVal = parseFloat(discountAmount) || 0;
 
   // Always use today's date
@@ -321,8 +328,9 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
       const sheetName = await resolveSheetName();
       const spreadsheetId = process.env.SPREADSHEET_ID;
 
-      const current = await getCustomerByRow(index);
-      if (!current) throw new Error(`Customer not found at row ${index}`);
+      const current = await getCustomerByRow(rowIndex, targetUsername);
+      if (!current) throw new Error(`Customer not found for row ${rowIndex} / ${targetUsername}`);
+      const index = current.rowIndex; // Use exact matched customer row index
 
       let newBank = current.bank;
       let newCash = current.cash;
