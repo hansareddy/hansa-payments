@@ -19,6 +19,7 @@ import {
   ScrollView,
   Modal,
   SafeAreaView,
+  BackHandler,
 } from 'react-native';
 import { getCustomers, recordPayment } from '../services/api';
 import { useAuth } from '../services/AuthContext';
@@ -40,6 +41,13 @@ export default function CustomerListScreen({ navigation }) {
 
   useEffect(() => {
     loadData();
+
+    // Prevent back button on home screen from going back to login
+    const backAction = () => {
+      return true; // Return true to block default back navigation
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
   }, []);
 
   const loadData = async () => {

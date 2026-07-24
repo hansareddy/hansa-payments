@@ -131,23 +131,60 @@ function parseCurrency(val) {
   return parseFloat(String(val).replace(/,/g, '')) || 0;
 }
 
+// In-memory transaction history store per customer
+let paymentTransactionLogs = {};
+
 function rowToCustomer(row, rowIndex) {
+  const username = (row[COL.USERNAME] || '').trim();
+  const bank = parseCurrency(row[COL.BANK]);
+  const cash = parseCurrency(row[COL.CASH]);
+  const discount = parseCurrency(row[COL.DISCOUNT]);
+  const date1 = (row[COL.DATE1] || '').trim();
+  const transactionId = (row[COL.TRANSACTION_ID] || '').trim();
+
+  let history = paymentTransactionLogs[username] ? [...paymentTransactionLogs[username]] : [];
+  if (history.length === 0 && (bank > 0 || cash > 0 || transactionId)) {
+    if (bank > 0) {
+      history.push({
+        id: `tx_init_bank_${rowIndex}`,
+        date: date1 || 'Recent',
+        mode: 'BANK',
+        amount: bank,
+        discount: discount,
+        transactionId: transactionId || 'SHEET_REC',
+        notes: 'Bank / UPI Collection'
+      });
+    }
+    if (cash > 0) {
+      history.push({
+        id: `tx_init_cash_${rowIndex}`,
+        date: date1 || 'Recent',
+        mode: 'CASH',
+        amount: cash,
+        discount: 0,
+        transactionId: 'CASH_PAYMENT',
+        notes: 'Cash Collection'
+      });
+    }
+  }
+
   return {
     rowIndex,
-    username: (row[COL.USERNAME] || '').trim(),
+    username,
     mobile: (row[COL.MOBILE] || '').trim(),
     ipAddress: (row[COL.IP_ADDRESS] || '').trim(),
     renew: parseCurrency(row[COL.RENEW]),
     due: parseCurrency(row[COL.DUE]),
-    discount: parseCurrency(row[COL.DISCOUNT]),
+    discount,
     charges: parseCurrency(row[COL.CHARGES]),
-    bank: parseCurrency(row[COL.BANK]),
-    cash: parseCurrency(row[COL.CASH]),
+    bank,
+    cash,
     balance: parseCurrency(row[COL.BALANCE]),
-    date1: (row[COL.DATE1] || '').trim(),
+    date1,
     date2: (row[COL.DATE2] || '').trim(),
     forField: (row[COL.FOR] || '').trim(),
-    transactionId: (row[COL.TRANSACTION_ID] || '').trim(),
+    transactionId,
+    paymentHistory: history,
   };
 }
 
@@ -322,7 +359,21 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
       });
 
       console.log(`✅ Payment written to Google Sheet row ${index}`);
-      // Clear cached data so next read fetches fresh
+
+      // Log transaction in history
+      if (!paymentTransactionLogs[current.username]) {
+        paymentTransactionLogs[current.username] = [];
+      }
+      paymentTransactionLogs[current.username].unshift({
+        id: `tx_${Date.now()}`,
+        date: todayStr,
+        mode: paymentMode,
+        amount: paymentAmount,
+        discount: discountVal,
+        transactionId: transactionId || 'N/A',
+        notes: notes || `${paymentMode} collection`
+      });
+
       return await getCustomerByRow(index);
     } catch (err) {
       console.error('❌ Google Sheet update error:', err.message);

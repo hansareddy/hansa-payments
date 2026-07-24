@@ -25,6 +25,7 @@ export default function CustomerDetailScreen({ route, navigation }) {
 
   const [currentCustomer, setCurrentCustomer] = useState(customer);
   const [showComplaintModal, setShowComplaintModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [complaintText, setComplaintText] = useState('');
   const [isUrgent, setIsUrgent] = useState(false);
   const [savingComplaint, setSavingComplaint] = useState(false);
@@ -231,6 +232,42 @@ export default function CustomerDetailScreen({ route, navigation }) {
           </View>
         </View>
 
+        {/* Payment History Section */}
+        <View style={styles.sectionCard}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={styles.sectionTitle}>💳 Payment History</Text>
+            <TouchableOpacity 
+              onPress={() => { Vibration.vibrate(20); setShowHistoryModal(true); }}
+              style={styles.historyLinkBtn}
+            >
+              <Text style={styles.historyLinkText}>View Full Log ({currentCustomer.paymentHistory ? currentCustomer.paymentHistory.length : 0}) ➔</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Last Payment Date</Text>
+            <Text style={[styles.infoValue, { color: '#059669' }]}>
+              {currentCustomer.date1 || 'No Payments Yet'}
+            </Text>
+          </View>
+          <View style={styles.divider} />
+          
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Last Transaction ID</Text>
+            <Text style={[styles.infoValue, { color: '#1E3A8A' }]}>
+              {currentCustomer.transactionId || '—'}
+            </Text>
+          </View>
+          <View style={styles.divider} />
+          
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Total Paid (Cash + Bank)</Text>
+            <Text style={[styles.infoValue, { color: '#0F172A', fontWeight: '700' }]}>
+              {formatCurrency((currentCustomer.cash || 0) + (currentCustomer.bank || 0))}
+            </Text>
+          </View>
+        </View>
+
         {/* Action Button Grid */}
         <View style={styles.actionBtnGrid}>
           <TouchableOpacity
@@ -253,6 +290,53 @@ export default function CustomerDetailScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* PAYMENT HISTORY MODAL */}
+      <Modal visible={showHistoryModal} transparent={true} animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+            <Text style={styles.modalTitle}>📜 Payment History ({currentCustomer.username})</Text>
+
+            {(!currentCustomer.paymentHistory || currentCustomer.paymentHistory.length === 0) ? (
+              <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                <Text style={{ fontSize: 14, color: '#94A3B8' }}>No payment transaction logs recorded yet.</Text>
+              </View>
+            ) : (
+              <ScrollView style={{ marginTop: 8 }}>
+                {currentCustomer.paymentHistory.map((item, index) => (
+                  <View key={item.id || index} style={styles.historyCardItem}>
+                    <View style={styles.historyCardHeader}>
+                      <View style={[styles.historyModeBadge, item.mode === 'CASH' ? styles.badgeCash : styles.badgeBank]}>
+                        <Text style={[styles.historyModeBadgeText, item.mode === 'CASH' ? styles.badgeTextCash : styles.badgeTextBank]}>
+                          {item.mode === 'CASH' ? '💵 CASH' : '🏦 BANK / UPI'}
+                        </Text>
+                      </View>
+                      <Text style={styles.historyDateText}>📅 {item.date}</Text>
+                    </View>
+                    <View style={styles.historyCardBody}>
+                      <Text style={styles.historyAmountText}>{formatCurrency(item.amount)}</Text>
+                      {item.discount > 0 ? (
+                        <Text style={styles.historyDiscountText}>Discount: {formatCurrency(item.discount)}</Text>
+                      ) : null}
+                    </View>
+                    <View style={styles.historyCardFooter}>
+                      <Text style={styles.historyTxnIdText}>Txn ID: {item.transactionId || 'N/A'}</Text>
+                      {item.notes ? <Text style={styles.historyNotesText}>{item.notes}</Text> : null}
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+
+            <TouchableOpacity 
+              style={[styles.modalCloseBtn, { marginTop: 14, alignSelf: 'center' }]}
+              onPress={() => setShowHistoryModal(false)}
+            >
+              <Text style={[styles.modalCloseText, { fontSize: 16, color: '#1E3A8A' }]}>Close History</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* COMPLAINT MODAL OVERLAY */}
       <Modal visible={showComplaintModal} transparent={true} animationType="slide">
@@ -585,5 +669,90 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
+  },
+
+  // History styles
+  historyLinkBtn: {
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+  },
+  historyLinkText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#1E3A8A',
+  },
+  historyCardItem: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    marginBottom: 10,
+  },
+  historyCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  historyModeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  badgeCash: {
+    backgroundColor: '#ECFDF5',
+  },
+  badgeBank: {
+    backgroundColor: '#EFF6FF',
+  },
+  historyModeBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  badgeTextCash: {
+    color: '#059669',
+  },
+  badgeTextBank: {
+    color: '#1D4ED8',
+  },
+  historyDateText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  historyCardBody: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  historyAmountText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  historyDiscountText: {
+    fontSize: 12,
+    color: '#D97706',
+    fontWeight: '600',
+  },
+  historyCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 6,
+  },
+  historyTxnIdText: {
+    fontSize: 11,
+    color: '#475569',
+    fontWeight: '600',
+  },
+  historyNotesText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontStyle: 'italic',
   },
 });

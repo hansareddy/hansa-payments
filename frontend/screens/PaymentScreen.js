@@ -60,6 +60,10 @@ export default function PaymentScreen({ route, navigation }) {
       Alert.alert('Payment Method Required', 'Please select Cash or a UPI Application.');
       return;
     }
+    if (!transactionId.trim()) {
+      Alert.alert('Transaction ID Required', 'Please enter the Transaction ID / Reference Number before submitting.');
+      return;
+    }
     if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
       Alert.alert('Invalid Amount', 'Please input a valid transaction amount.');
       return;
@@ -209,7 +213,7 @@ export default function PaymentScreen({ route, navigation }) {
           <Text style={styles.headerBalance}>Account Balance: {formatCurrency(customer.balance)}</Text>
         </View>
 
-        {/* Payment mode selection */}
+        {/* Payment mode selection & Transaction ID */}
         <View style={styles.stepCard}>
           <Text style={styles.stepTitle}>Payment Method</Text>
           
@@ -244,7 +248,7 @@ export default function PaymentScreen({ route, navigation }) {
               onPress={() => setPaymentMode('PHONEPE')}
             >
               <Image 
-                source={{ uri: 'https://raw.githubusercontent.com/PhonePe/phonepe-pg-sdk-php/master/phonepe-logo.png' }} 
+                source={{ uri: 'https://img.icons8.com/color/96/phone-pe.png' }} 
                 style={styles.upiLogo} 
               />
               <Text style={styles.upiLabel}>PhonePe</Text>
@@ -260,6 +264,22 @@ export default function PaymentScreen({ route, navigation }) {
               />
               <Text style={styles.upiLabel}>Paytm</Text>
             </TouchableOpacity>
+          </View>
+
+          {/* Transaction ID — Required inside Payment Method */}
+          <Text style={[styles.stepTitle, { marginTop: 16, marginBottom: 8 }]}>
+            Transaction ID / Ref No. <Text style={{ color: '#E11D48' }}>*</Text>
+          </Text>
+          <View style={styles.txnIdBox}>
+            <Text style={styles.txnIdIcon}>🧾</Text>
+            <TextInput
+              style={styles.txnIdInput}
+              placeholder="Enter UPI Ref No. or Receipt ID (Required)"
+              placeholderTextColor="#94A3B8"
+              value={transactionId}
+              onChangeText={setTransactionId}
+              autoCapitalize="characters"
+            />
           </View>
         </View>
 
@@ -293,21 +313,6 @@ export default function PaymentScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* Transaction ID */}
-        <View style={styles.stepCard}>
-          <Text style={styles.stepTitle}>Transaction ID (Optional)</Text>
-          <View style={styles.txnIdBox}>
-            <Text style={styles.txnIdIcon}>🧾</Text>
-            <TextInput
-              style={styles.txnIdInput}
-              placeholder="e.g. UPI ref number, receipt no."
-              placeholderTextColor="#94A3B8"
-              value={transactionId}
-              onChangeText={setTransactionId}
-              autoCapitalize="characters"
-            />
-          </View>
-        </View>
 
         {/* Today's Date (read-only) */}
         <View style={styles.stepCard}>

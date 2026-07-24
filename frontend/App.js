@@ -67,7 +67,7 @@ function AppNavigator() {
           <Stack.Screen
             name="CustomerList"
             component={CustomerListScreen}
-            options={{ headerShown: false }}
+            options={{ headerShown: false, headerBackVisible: false, gestureEnabled: false }}
           />
           <Stack.Screen
             name="CustomerDetail"
