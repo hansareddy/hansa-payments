@@ -29,33 +29,8 @@ const COL = {
 // Cached resolved sheet tab name (detected once, reused for all reads+writes)
 let _resolvedSheetName = null;
 
-// Sample ledger data parsed from SAGAR 2022 PDF for instant availability
-let localLedger = [
-  { rowIndex: 2, username: 'HCS_PILLA', mobile: '9441695167', ipAddress: '172.168.104.49', renew: 600, due: 600, discount: 0, charges: 0, bank: 600, cash: 0, balance: 0, date1: '7', date2: '', forField: '' },
-  { rowIndex: 3, username: 'HCS_APRTA', mobile: '9908492567', ipAddress: '172.168.104.50', renew: 600, due: 600, discount: 0, charges: 0, bank: 0, cash: 0, balance: 600, date1: '', date2: '', forField: '' },
-  { rowIndex: 4, username: 'HCS_PENDYALA', mobile: '9491771812', ipAddress: '172.168.104.51', renew: 600, due: 600, discount: 0, charges: 0, bank: 0, cash: 0, balance: 600, date1: '', date2: '', forField: '' },
-  { rowIndex: 5, username: 'HCS_KADIMI', mobile: '9000580395', ipAddress: '172.168.104.52', renew: 600, due: 600, discount: 0, charges: 0, bank: 600, cash: 0, balance: 0, date1: '', date2: '', forField: '' },
-  { rowIndex: 6, username: 'HCS_TVAPPARAO', mobile: '9493121001', ipAddress: '172.168.104.53', renew: 600, due: 600, discount: 0, charges: 0, bank: 0, cash: 0, balance: 600, date1: '', date2: '', forField: '' },
-  { rowIndex: 7, username: 'HCS_DWARAMPUDI', mobile: '9493120031', ipAddress: '172.168.104.54', renew: 600, due: 1600, discount: 0, charges: 0, bank: 1000, cash: 600, balance: 0, date1: '24', date2: '', forField: '' },
-  { rowIndex: 8, username: 'HCS_MAZEED', mobile: '7382784274', ipAddress: '172.168.104.55', renew: 600, due: 600, discount: 0, charges: 0, bank: 600, cash: 0, balance: 0, date1: '12.01', date2: '', forField: '' },
-  { rowIndex: 9, username: 'HCS_SHOBHAN', mobile: '9704978756', ipAddress: '172.168.104.56', renew: 600, due: 600, discount: 0, charges: 0, bank: 0, cash: 0, balance: 600, date1: '', date2: '', forField: '' },
-  { rowIndex: 10, username: 'HCS_KETHANI', mobile: '9490570018', ipAddress: '172.168.104.57', renew: 600, due: 600, discount: 0, charges: 0, bank: 0, cash: 0, balance: 600, date1: '', date2: '', forField: '' },
-  { rowIndex: 11, username: 'HCS_RAMPRASAD', mobile: '9010861086', ipAddress: '172.168.104.58', renew: 600, due: 1800, discount: 0, charges: 0, bank: 1200, cash: 0, balance: 600, date1: '', date2: '', forField: '' },
-  { rowIndex: 12, username: 'HCS_YEMINENI', mobile: '9440573884', ipAddress: '172.168.104.59', renew: 600, due: 600, discount: 0, charges: 0, bank: 600, cash: 0, balance: 0, date1: '17', date2: '', forField: '' },
-  { rowIndex: 13, username: 'HCS_VADDE', mobile: '9030842400', ipAddress: '172.168.104.60', renew: 600, due: 600, discount: 0, charges: 0, bank: 600, cash: 0, balance: 0, date1: '24', date2: '', forField: '' },
-  { rowIndex: 14, username: 'HCS_MACHA', mobile: '8500616371', ipAddress: '172.168.104.61', renew: 600, due: 600, discount: 0, charges: 0, bank: 600, cash: 600, balance: 0, date1: '25', date2: '', forField: '' },
-  { rowIndex: 15, username: 'HCS_KALLURI', mobile: '9963646187', ipAddress: '172.168.104.62', renew: 600, due: 600, discount: 0, charges: 0, bank: 600, cash: 0, balance: 0, date1: '11', date2: '', forField: '' },
-  { rowIndex: 16, username: 'HCS_BANGI', mobile: '9441451824', ipAddress: '172.168.104.64', renew: 600, due: 1200, discount: 0, charges: 0, bank: 600, cash: 0, balance: 600, date1: '', date2: '', forField: '' },
-  { rowIndex: 17, username: 'HCS_MANNARU', mobile: '9493801375', ipAddress: '172.168.104.65', renew: 600, due: 600, discount: 0, charges: 0, bank: 600, cash: 0, balance: 0, date1: '5', date2: '', forField: '' },
-  { rowIndex: 18, username: 'HCS_MISHAEL', mobile: '9493120189', ipAddress: '172.168.104.67', renew: 600, due: 600, discount: 0, charges: 0, bank: 600, cash: 0, balance: 0, date1: '12', date2: '', forField: '' },
-  { rowIndex: 19, username: 'HCS_DAGGUBATI', mobile: '9491049480', ipAddress: '172.168.104.68', renew: 600, due: 600, discount: 0, charges: 0, bank: 600, cash: 0, balance: 0, date1: '20', date2: '', forField: '' },
-  { rowIndex: 20, username: 'HCS_RAMANA', mobile: '7989426158', ipAddress: '172.168.104.73', renew: 600, due: 1000, discount: 0, charges: 0, bank: 400, cash: 600, balance: 0, date1: '20', date2: '', forField: '' },
-  { rowIndex: 21, username: 'HCS_PVSRAO', mobile: '9490138480', ipAddress: '172.168.104.74', renew: 600, due: 3000, discount: 0, charges: 0, bank: 2400, cash: 600, balance: 0, date1: '', date2: '', forField: '' },
-  { rowIndex: 22, username: 'hcs_srinivas', mobile: '9440103251', ipAddress: '172.168.104.78', renew: 600, due: 4200, discount: 0, charges: 0, bank: 3600, cash: 600, balance: 0, date1: '', date2: '', forField: '' },
-  { rowIndex: 23, username: 'hcs_gouthampalvai', mobile: '8886345366', ipAddress: '172.168.104.79', renew: 600, due: 600, discount: 0, charges: 0, bank: 600, cash: 0, balance: 0, date1: '5', date2: '', forField: '' },
-  { rowIndex: 24, username: 'hcs_jogi', mobile: '8985384920', ipAddress: '172.168.104.140', renew: 600, due: 1200, discount: 0, charges: 0, bank: 600, cash: 600, balance: 0, date1: '04-31', date2: '', forField: '' },
-  { rowIndex: 25, username: 'hcs_chary', mobile: '9490487880', ipAddress: '172.168.104.145', renew: 600, due: 1200, discount: 0, charges: 0, bank: 1200, cash: 600, balance: 600, date1: '12, 31', date2: '', forField: '' }
-];
+// In-memory fallback ledger (populated dynamically if Google Sheet API is unreachable)
+let localLedger = [];
 
 let sheetsClient = null;
 
