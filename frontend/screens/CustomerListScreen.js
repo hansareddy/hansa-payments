@@ -296,6 +296,14 @@ export default function CustomerListScreen({ navigation }) {
             >
               <Text style={styles.addBtnText}>+ ADD</Text>
             </TouchableOpacity>
+
+            {/* logout button */}
+            <TouchableOpacity 
+              style={[styles.complaintsBtn, { backgroundColor: 'rgba(239,68,68,0.25)', borderColor: 'rgba(239,68,68,0.4)', marginLeft: 6 }]} 
+              onPress={() => { Vibration.vibrate(20); logout(); }}
+            >
+              <Text style={{ fontSize: 16 }}>🚪</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -412,9 +420,17 @@ export default function CustomerListScreen({ navigation }) {
         <View style={styles.errorContainer}>
           <Text style={styles.errorTitle}>Synchronization Failed</Text>
           <Text style={styles.errorSub}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={loadData}>
-            <Text style={styles.retryText}>Retry Sync</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+            <TouchableOpacity style={styles.retryBtn} onPress={loadData}>
+              <Text style={styles.retryText}>Retry Sync</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.retryBtn, { backgroundColor: '#EF4444' }]} 
+              onPress={() => { Vibration.vibrate(20); logout(); }}
+            >
+              <Text style={styles.retryText}>🔑 Log In Again</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
