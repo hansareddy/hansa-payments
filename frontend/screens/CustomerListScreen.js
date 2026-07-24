@@ -20,6 +20,7 @@ import {
   Modal,
   SafeAreaView,
   BackHandler,
+  Image,
 } from 'react-native';
 import { getCustomers, recordPayment } from '../services/api';
 import { useAuth } from '../services/AuthContext';
@@ -273,13 +274,16 @@ export default function CustomerListScreen({ navigation }) {
               </Text>
             </TouchableOpacity>
 
-            {/* add customer */}
+            {/* manage users button */}
             {user?.role === 'admin' && (
               <TouchableOpacity 
-                style={[styles.complaintsBtn, { backgroundColor: 'rgba(99,102,241,0.2)', borderColor: 'rgba(99,102,241,0.3)' }]} 
+                style={[styles.complaintsBtn, { backgroundColor: 'rgba(99,102,241,0.25)', borderColor: 'rgba(99,102,241,0.4)' }]} 
                 onPress={() => { Vibration.vibrate(20); navigation.navigate('ManageUsers'); }}
               >
-                <Text style={styles.complaintsBtnText}>👥</Text>
+                <Image 
+                  source={{ uri: 'https://img.icons8.com/color/96/administrator-male.png' }} 
+                  style={{ width: 20, height: 20 }} 
+                />
               </TouchableOpacity>
             )}
 
