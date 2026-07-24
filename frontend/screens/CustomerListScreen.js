@@ -170,6 +170,16 @@ export default function CustomerListScreen({ navigation }) {
       }
     });
 
+    // Sort so latest payments (newest date/timestamp) ALWAYS appear at the top
+    records.sort((a, b) => {
+      const timeA = typeof a.id === 'string' && a.id.startsWith('tx_') ? parseInt(a.id.replace('tx_', ''), 10) || 0 : 0;
+      const timeB = typeof b.id === 'string' && b.id.startsWith('tx_') ? parseInt(b.id.replace('tx_', ''), 10) || 0 : 0;
+      if (timeA && timeB) return timeB - timeA;
+      if (timeA) return -1; // Fresh live payments first
+      if (timeB) return 1;
+      return String(b.date || '').localeCompare(String(a.date || ''));
+    });
+
     if (!historySearchQuery.trim()) return records;
     const term = historySearchQuery.toLowerCase().trim();
     return records.filter(r =>
