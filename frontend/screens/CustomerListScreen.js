@@ -171,15 +171,26 @@ export default function CustomerListScreen({ navigation }) {
       }
     });
 
-    // Sort so latest payments (newest date/timestamp) ALWAYS appear at the top
-    records.sort((a, b) => {
-      const timeA = typeof a.id === 'string' && a.id.startsWith('tx_') ? parseInt(a.id.replace('tx_', ''), 10) || 0 : 0;
-      const timeB = typeof b.id === 'string' && b.id.startsWith('tx_') ? parseInt(b.id.replace('tx_', ''), 10) || 0 : 0;
-      if (timeA && timeB) return timeB - timeA;
-      if (timeA) return -1; // Fresh live payments first
-      if (timeB) return 1;
-      return String(b.date || '').localeCompare(String(a.date || ''));
-    });
+    // Sort so today's transactions (YYYY-MM-DD & live timestamps) ALWAYS appear at the very top #1
+    const getSortScore = (item) => {
+      // 1. If timestamp ID exists (e.g. tx_1784891601944)
+      if (typeof item.id === 'string') {
+        const digits = item.id.replace(/\D/g, '');
+        if (digits.length >= 10) return parseInt(digits.slice(0, 13), 10);
+      }
+      
+      // 2. If ISO date string YYYY-MM-DD (e.g. 2026-07-24)
+      const dateStr = String(item.date || '').trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        const time = new Date(dateStr).getTime();
+        if (!isNaN(time)) return time;
+      }
+      
+      // 3. Fallback for legacy dates (e.g. '9', '24', 'Recent')
+      return 1000000000000; 
+    };
+
+    records.sort((a, b) => getSortScore(b) - getSortScore(a));
 
     if (!historySearchQuery.trim()) return records;
     const term = historySearchQuery.toLowerCase().trim();
