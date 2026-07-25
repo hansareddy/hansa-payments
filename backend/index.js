@@ -142,16 +142,23 @@ app.get('/api/debug-sheet', async (req, res) => {
         decodedSample = 'DECODE_ERR: ' + e.message;
       }
     }
-    const rows = await require('./sheets').getAllRows();
+    const sheetsModule = require('./sheets');
+    const rows = await sheetsModule.getAllRows();
+    let row123Raw = null;
+    let row123Parsed = null;
+    if (rows && rows.length >= 123) {
+      row123Raw = rows[122];
+      if (sheetsModule.rowToCustomer) {
+        row123Parsed = sheetsModule.rowToCustomer(rows[122], 123);
+      }
+    }
     res.json({
       spreadsheetId: rawSpreadsheetId,
       sheetName: rawSheetName,
-      b64Len,
-      decodedSample,
-      parsedKeySample,
       rowCount: rows ? rows.length : null,
       firstRow: rows && rows.length > 0 ? rows[0] : null,
-      secondRow: rows && rows.length > 1 ? rows[1] : null,
+      row123Raw,
+      row123Parsed,
     });
   } catch (err) {
     let parsedKeySample = 'N/A';
