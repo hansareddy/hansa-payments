@@ -248,9 +248,12 @@ function rowToCustomer(row, rowIndex) {
   const unpaidMonthNames = [];
   let totalDueFromMonths = 0;
 
-  MONTH_LIST.forEach(m => {
-    const colIdx = (COL.MONTH_COLS && COL.MONTH_COLS[m.key] !== undefined) ? COL.MONTH_COLS[m.key] : -1;
-    const cellVal = (colIdx !== -1 && row[colIdx]) ? String(row[colIdx]).trim() : '';
+  MONTH_LIST.forEach((m, idx) => {
+    let colIdx = (COL.MONTH_COLS && COL.MONTH_COLS[m.key] !== undefined && COL.MONTH_COLS[m.key] !== -1)
+      ? COL.MONTH_COLS[m.key]
+      : (8 + idx);
+
+    const cellVal = (row[colIdx] !== undefined) ? String(row[colIdx]).trim() : '';
     
     // Determine if paid or unpaid
     const isPaid = cellVal !== '' && 
