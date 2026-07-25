@@ -326,26 +326,13 @@ app.post('/api/customers', async (req, res) => {
 
 app.get('/api/customers', async (req, res) => {
   try {
-    const { q, refresh } = req.query;
-
-    // Serve from cache when no search query and refresh is not requested
-    if (!refresh && (!q || q.trim().length === 0)) {
-      const cached = getCachedCustomers();
-      if (cached && cached.length > 0) {
-        return res.json({ count: cached.length, customers: cached, cached: true });
-      }
-    }
-
+    const { q } = req.query;
     let customers;
     if (q && q.trim().length > 0) {
       customers = await searchCustomers(q);
     } else {
       customers = await getAllCustomers();
-      if (customers && customers.length > 0) {
-        setCachedCustomers(customers); // cache ONLY non-empty valid customer lists
-      }
     }
-
     res.json({ count: customers.length, customers });
   } catch (error) {
     console.error('Fetch customers error:', error.message);

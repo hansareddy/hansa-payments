@@ -264,16 +264,31 @@ export default function CustomerDetailScreen({ route, navigation }) {
           {/* Quick Metrics Bar */}
           {(() => {
             const displayFeeRate = currentCustomer.monthlyFee || (currentCustomer.basePack && String(currentCustomer.basePack).includes('400') ? 400 : 300);
-            const displayPayments = (currentCustomer.monthlyPayments && currentCustomer.monthlyPayments.length > 0)
+            let displayPayments = (currentCustomer.monthlyPayments && currentCustomer.monthlyPayments.length > 0)
               ? currentCustomer.monthlyPayments
-              : DEFAULT_12_MONTHS.map(m => ({
+              : null;
+
+            if (!displayPayments || displayPayments.length === 0) {
+              displayPayments = DEFAULT_12_MONTHS.map((m, idx) => {
+                let status = 'Unpaid';
+                let details = 'Unpaid';
+                if (m.key === 'Apr-26' && currentCustomer.date2) {
+                  status = 'Paid';
+                  details = currentCustomer.date2;
+                } else if (idx < 6 && (currentCustomer.bank > 0 || currentCustomer.cash > 0)) {
+                  status = 'Paid';
+                  details = 'Paid';
+                }
+                return {
                   key: m.key,
                   name: m.name,
                   short: m.short,
                   amount: displayFeeRate,
-                  status: 'Unpaid',
-                  details: 'Unpaid',
-                }));
+                  status,
+                  details,
+                };
+              });
+            }
 
             const paidCount = displayPayments.filter(m => m.status === 'Paid').length;
             const unpaidCount = displayPayments.filter(m => m.status !== 'Paid').length;
