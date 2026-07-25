@@ -276,17 +276,11 @@ async function getAllRows() {
   const spreadsheetId = process.env.SPREADSHEET_ID;
   const sheetName = await resolveSheetName();
 
-  try {
-    const response = await client.spreadsheets.values.get({
-      spreadsheetId,
-      range: `'${sheetName}'!A:Z`,
-    });
-    return response.data.values || [];
-  } catch (err) {
-    console.error('Failed to read sheet data:', err.message);
-  }
-
-  return [];
+  const response = await client.spreadsheets.values.get({
+    spreadsheetId,
+    range: `'${sheetName}'!A:Z`,
+  });
+  return response.data.values || [];
 }
 
 /**
