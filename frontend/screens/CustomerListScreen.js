@@ -25,6 +25,7 @@ import {
 import { getCustomers, recordPayment } from '../services/api';
 import { useAuth } from '../services/AuthContext';
 import { processQueue, getPendingCount } from '../services/OfflineQueue';
+import STBMapView from '../components/STBMapView';
 
 export default function CustomerListScreen({ navigation }) {
   const { user, logout } = useAuth();
@@ -40,6 +41,7 @@ export default function CustomerListScreen({ navigation }) {
   // Mobile drawer modal state
   const [showComplaintsDrawer, setShowComplaintsDrawer] = useState(false);
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
+  const [showMapDrawer, setShowMapDrawer] = useState(false);
   const [historySearchQuery, setHistorySearchQuery] = useState('');
 
   useEffect(() => {
@@ -426,12 +428,21 @@ export default function CustomerListScreen({ navigation }) {
             )}
           </View>
 
-          <TouchableOpacity
-            style={styles.historyBtnPill}
-            onPress={() => { Vibration.vibrate(20); setShowHistoryDrawer(true); }}
-          >
-            <Text style={styles.historyBtnPillText}>📜 History</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <TouchableOpacity
+              style={styles.historyBtnPill}
+              onPress={() => { Vibration.vibrate(20); setShowHistoryDrawer(true); }}
+            >
+              <Text style={styles.historyBtnPillText}>📜 History</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.historyBtnPill, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }]}
+              onPress={() => { Vibration.vibrate(20); setShowMapDrawer(true); }}
+            >
+              <Text style={[styles.historyBtnPillText, { color: '#047857' }]}>🗺️ Map</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* filter tabs (3 clean equal tabs: All, Active, Inactive) */}
@@ -718,6 +729,80 @@ export default function CustomerListScreen({ navigation }) {
                   </TouchableOpacity>
                 ))
               )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MOBILE-NATIVE NETWORK MAP MODAL SHEET */}
+      <Modal
+        visible={showMapDrawer}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowMapDrawer(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <TouchableOpacity
+            style={styles.modalDismissArea}
+            activeOpacity={1}
+            onPress={() => setShowMapDrawer(false)}
+          />
+          <View style={[styles.modalSheet, { maxHeight: '85%' }]}>
+            <View style={styles.dragHandle} />
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>🗺️ Network STB Geolocation Map</Text>
+                <Text style={styles.modalSubTitle}>STB Serial Number locations across network</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setShowMapDrawer(false)}
+              >
+                <Text style={styles.modalCloseText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.modalScroll}>
+              <STBMapView
+                customers={allCustomers}
+                isLocked={true}
+              />
+
+              <View style={{ marginTop: 12 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A', marginBottom: 8 }}>
+                  STB Location Registry ({allCustomers.filter(c => c.locationLocked).length} Locked & Verified)
+                </Text>
+                {allCustomers.map(c => (
+                  <TouchableOpacity
+                    key={c.rowIndex}
+                    style={{
+                      backgroundColor: '#F8FAFC',
+                      padding: 12,
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: '#E2E8F0',
+                      marginBottom: 8,
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                    onPress={() => {
+                      setShowMapDrawer(false);
+                      navigation.navigate('CustomerDetail', { customer: c });
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#1E293B' }}>{c.username}</Text>
+                      <Text style={{ fontSize: 11, color: '#64748B' }}>STB: {c.serialNumber || 'No Serial'} • Cust #: {c.customerNo || c.ipAddress || '—'}</Text>
+                    </View>
+                    <View style={{ backgroundColor: c.locationLocked ? '#D1FAE5' : '#FEF3C7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '800', color: c.locationLocked ? '#047857' : '#B45309' }}>
+                        {c.locationLocked ? '🔒 LOCKED' : '🟡 UNLOCKED'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </ScrollView>
           </View>
         </View>

@@ -76,6 +76,16 @@ async function apiPost(path, body) {
   return data;
 }
 
+async function apiPut(path, body) {
+  const response = await apiFetch(`${getBaseUrl()}${path}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+  return data;
+}
+
 async function apiDelete(path) {
   const response = await apiFetch(`${getBaseUrl()}${path}`, { method: 'DELETE' });
   const data = await response.json();
@@ -183,6 +193,14 @@ export async function createCustomer(customerData) {
 
 export async function registerComplaint(rowIndex, urgent, complaint) {
   return apiPost(`/api/customers/${rowIndex}/complaint`, { urgent, complaint });
+}
+
+export async function updateSTBLocation(rowIndex, latitude, longitude, loggedBy) {
+  return apiPut('/api/stb/location', { rowIndex, latitude, longitude, loggedBy });
+}
+
+export async function requestLocationUnlock(rowIndex, username, requestedBy, reason) {
+  return apiPost('/api/stb/unlock-request', { rowIndex, username, requestedBy, reason });
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

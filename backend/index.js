@@ -28,6 +28,10 @@ const {
   updatePayment,
   addCustomer,
   updateComplaint,
+  updateSTBLocation,
+  requestLocationUnlock,
+  getUnlockRequests,
+  approveLocationUnlock,
 } = require('./sheets');
 
 const app = express();
@@ -419,10 +423,69 @@ app.post('/api/customers/:rowIndex/complaint', async (req, res) => {
 
     const updatedCustomer = await updateComplaint(rowIndex, !!urgent, complaint || '');
     invalidateCache();
-    res.json({ message: 'Complaint recorded successfully', customer: updatedCustomer });
+    res.json({ message: 'Complaint registered successfully', customer: updatedCustomer });
   } catch (error) {
     console.error('Complaint error:', error.message);
-    res.status(500).json({ error: 'Failed to record complaint', details: error.message });
+    res.status(500).json({ error: 'Failed to register complaint', details: error.message });
+  }
+});
+
+/**
+ * PUT /api/stb/location — Log or update STB Geolocation coordinates (Locked upon saving)
+ */
+app.put('/api/stb/location', async (req, res) => {
+  try {
+    const { rowIndex, latitude, longitude, loggedBy } = req.body;
+    if (!rowIndex || latitude === undefined || longitude === undefined) {
+      return res.status(400).json({ error: 'Missing required fields: rowIndex, latitude, longitude' });
+    }
+
+    const userRole = (req.user && req.user.role) ? req.user.role : 'employee';
+    const updatedCustomer = await updateSTBLocation(rowIndex, latitude, longitude, loggedBy || req.user?.username, userRole);
+
+    invalidateCache();
+    res.json({ message: 'STB Geolocation saved and locked successfully', customer: updatedCustomer });
+  } catch (error) {
+    console.error('STB Location error:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/stb/unlock-request — Submit request to Admin to unlock STB location
+ */
+app.post('/api/stb/unlock-request', async (req, res) => {
+  try {
+    const { rowIndex, username, requestedBy, reason } = req.body;
+    if (!rowIndex) {
+      return res.status(400).json({ error: 'Missing rowIndex field' });
+    }
+    const unlockReq = await requestLocationUnlock(rowIndex, username, requestedBy || req.user?.username, reason);
+    res.json({ message: 'Unlock request submitted to Admin', request: unlockReq });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to submit unlock request', details: error.message });
+  }
+});
+
+/**
+ * GET /api/stb/unlock-requests — Get list of unlock requests
+ */
+app.get('/api/stb/unlock-requests', (req, res) => {
+  res.json({ requests: getUnlockRequests() });
+});
+
+/**
+ * POST /api/stb/approve-unlock — Admin approves unlock request
+ */
+app.post('/api/stb/approve-unlock', async (req, res) => {
+  try {
+    const { requestId } = req.body;
+    if (!requestId) return res.status(400).json({ error: 'Missing requestId' });
+    const customer = await approveLocationUnlock(requestId);
+    invalidateCache();
+    res.json({ message: 'STB location unlocked by Admin', customer });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 });
 

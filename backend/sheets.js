@@ -26,6 +26,10 @@ let COL = {
   TRANSACTION_ID: 13,
 };
 
+// In-memory store for STB GPS Locations & Admin Unlock Requests
+const stbLocationStore = new Map(); // rowIndex -> { lat, lng, isLocked, loggedBy, loggedAt }
+const unlockRequestsStore = []; // list of { id, rowIndex, username, requestedBy, reason, timestamp, status }
+
 /**
  * Dynamically detect column indices from header row (Row 1)
  */
@@ -357,6 +361,14 @@ function rowToCustomer(row, rowIndex) {
   memoryLogs.forEach(item => historyMap.set(item.id, item));
   let history = Array.from(historyMap.values());
 
+  const stbLoc = stbLocationStore.get(rowIndex) || {
+    lat: null,
+    lng: null,
+    isLocked: false,
+    loggedBy: null,
+    loggedAt: null,
+  };
+
   return {
     rowIndex,
     username,
@@ -366,6 +378,11 @@ function rowToCustomer(row, rowIndex) {
     serialNumber,
     status,
     location,
+    latitude: stbLoc.lat,
+    longitude: stbLoc.lng,
+    locationLocked: stbLoc.isLocked,
+    locationLoggedBy: stbLoc.loggedBy,
+    locationTimestamp: stbLoc.loggedAt,
     basePack,
     monthlyFee,
     monthlyPayments,
@@ -789,6 +806,78 @@ async function updateComplaint(rowIndex, urgent, complaint) {
   return customer;
 }
 
+/**
+ * Log or update STB Geolocation coordinates.
+ * Once logged, location becomes LOCKED unless user is Admin or unlocked by Admin.
+ */
+async function updateSTBLocation(rowIndex, lat, lng, loggedBy, userRole) {
+  const index = parseInt(rowIndex, 10);
+  const existingLoc = stbLocationStore.get(index);
+  const isAdmin = userRole === 'admin';
+
+  if (existingLoc && existingLoc.isLocked && !isAdmin) {
+    throw new Error('STB location is LOCKED. Permission from Admin is required to change this location.');
+  }
+
+  const updatedLoc = {
+    lat: parseFloat(lat),
+    lng: parseFloat(lng),
+    isLocked: true,
+    loggedBy: loggedBy || (isAdmin ? 'Admin' : 'Field Employee'),
+    loggedAt: new Date().toISOString(),
+  };
+
+  stbLocationStore.set(index, updatedLoc);
+  console.log(`📍 STB Location logged & locked for Row ${index}: (${lat}, ${lng}) by ${updatedLoc.loggedBy}`);
+
+  const customer = await getCustomerByRow(index);
+  return customer;
+}
+
+/**
+ * Submit a request to Admin to unlock STB location coordinates.
+ */
+async function requestLocationUnlock(rowIndex, username, requestedBy, reason) {
+  const index = parseInt(rowIndex, 10);
+  const req = {
+    id: `req_${Date.now()}_${index}`,
+    rowIndex: index,
+    username: username || `Row ${index}`,
+    requestedBy: requestedBy || 'Field Tech',
+    reason: reason || 'STB re-installed or moved to new location',
+    timestamp: new Date().toISOString(),
+    status: 'PENDING',
+  };
+  unlockRequestsStore.push(req);
+  console.log(`🔓 Location Unlock Request submitted for Row ${index} by ${req.requestedBy}`);
+  return req;
+}
+
+/**
+ * Retrieve all pending unlock requests for Admin dashboard.
+ */
+function getUnlockRequests() {
+  return unlockRequestsStore;
+}
+
+/**
+ * Admin approves or unlocks an STB location.
+ */
+async function approveLocationUnlock(requestId) {
+  const req = unlockRequestsStore.find(r => r.id === requestId);
+  if (!req) throw new Error('Unlock request not found.');
+  req.status = 'APPROVED';
+
+  const index = req.rowIndex;
+  if (stbLocationStore.has(index)) {
+    const loc = stbLocationStore.get(index);
+    loc.isLocked = false; // Unlocked!
+    stbLocationStore.set(index, loc);
+  }
+  console.log(`✅ Admin approved location unlock for Row ${index}`);
+  return await getCustomerByRow(index);
+}
+
 module.exports = {
   getAllCustomers,
   searchCustomers,
@@ -796,6 +885,10 @@ module.exports = {
   updatePayment,
   addCustomer,
   updateComplaint,
+  updateSTBLocation,
+  requestLocationUnlock,
+  getUnlockRequests,
+  approveLocationUnlock,
   getAllRows,
   detectColumnsFromHeader,
   rowToCustomer,

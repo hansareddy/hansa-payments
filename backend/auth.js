@@ -32,9 +32,17 @@ let users = [
     displayName: 'Admin',
     createdAt: new Date().toISOString(),
   },
+  {
+    id: 2,
+    username: 'employee',
+    password: bcrypt.hashSync(process.env.EMPLOYEE_PASSWORD || 'hansa@field', BCRYPT_ROUNDS),
+    role: 'employee',
+    displayName: 'Field Tech',
+    createdAt: new Date().toISOString(),
+  },
 ];
 
-let nextId = 2;
+let nextId = 3;
 
 // ---------------------------------------------------------------------------
 // Refresh token store (in-memory; rotate on use)
