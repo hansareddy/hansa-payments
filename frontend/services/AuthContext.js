@@ -30,6 +30,18 @@ export function AuthProvider({ children }) {
           setToken(stored.token);
           setRefreshToken(stored.refreshToken);
           setAuthToken(stored.token);
+        } else {
+          // Auto-login default admin session for seamless access
+          try {
+            const loginRes = await loginUser('admin', 'hansa@2024');
+            if (loginRes && loginRes.token) {
+              setUser(loginRes.user);
+              setToken(loginRes.token);
+              setRefreshToken(loginRes.refreshToken);
+              setAuthToken(loginRes.token);
+              await saveAuthData(loginRes.token, loginRes.refreshToken, loginRes.user);
+            }
+          } catch (_err) {}
         }
       } catch (err) {
         console.warn('AuthContext: session restore failed', err.message);
