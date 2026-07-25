@@ -84,6 +84,28 @@ function isGoogleConfigured() {
   return fs.existsSync(credentialsPath) && process.env.SPREADSHEET_ID && process.env.SPREADSHEET_ID !== 'your_spreadsheet_id_here';
 }
 
+function fixPrivateKey(rawKey) {
+  if (!rawKey) return rawKey;
+  let str = String(rawKey).trim().replace(/^["']|["']$/g, '');
+  str = str.replace(/\\n/g, '\n').replace(/\r/g, '');
+
+  const beginHeader = '-----BEGIN PRIVATE KEY-----';
+  const endHeader = '-----END PRIVATE KEY-----';
+
+  if (str.includes(beginHeader) && str.includes(endHeader)) {
+    const body = str
+      .replace(beginHeader, '')
+      .replace(endHeader, '')
+      .replace(/\s+/g, '');
+
+    const chunks = body.match(/.{1,64}/g);
+    if (chunks) {
+      return `${beginHeader}\n${chunks.join('\n')}\n${endHeader}\n`;
+    }
+  }
+  return str;
+}
+
 async function getClient() {
   if (sheetsClient) return sheetsClient;
 
@@ -95,7 +117,7 @@ async function getClient() {
       const decoded = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64.trim(), 'base64').toString('utf8');
       const credentials = JSON.parse(decoded);
       if (credentials.private_key) {
-        credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+        credentials.private_key = fixPrivateKey(credentials.private_key);
       }
       console.log('✅ Google credentials loaded from GOOGLE_CREDENTIALS_BASE64');
       auth = new google.auth.GoogleAuth({
@@ -112,7 +134,7 @@ async function getClient() {
     try {
       const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
       if (credentials.private_key) {
-        credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+        credentials.private_key = fixPrivateKey(credentials.private_key);
       }
       console.log('✅ Google credentials loaded from GOOGLE_CREDENTIALS_JSON');
       auth = new google.auth.GoogleAuth({
