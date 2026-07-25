@@ -36,7 +36,7 @@ const DEFAULT_12_MONTHS = [
 ];
 
 export default function CustomerDetailScreen({ route, navigation }) {
-  const { customer } = route.params;
+  const customer = route?.params?.customer || {};
 
   const [currentCustomer, setCurrentCustomer] = useState(customer);
   const [showComplaintModal, setShowComplaintModal] = useState(false);

@@ -50,38 +50,44 @@ export default function CustomerListScreen({ navigation }) {
       return true; // Return true to block default back navigation
     };
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
-    return () => backHandler.remove();
+    return () => {
+      if (backHandler && typeof backHandler.remove === 'function') {
+        backHandler.remove();
+      }
+    };
   }, []);
 
   const loadData = async (attempts = 3) => {
     setError(null);
-    for (let i = 0; i < attempts; i++) {
-      try {
-        // Auto-sync offline queue if connection is restored
-        const syncResult = await processQueue(recordPayment);
-        if (syncResult.synced > 0) {
-          Vibration.vibrate([0, 50, 50, 50]);
-        }
-        setPendingSync(getPendingCount());
+    try {
+      for (let i = 0; i < attempts; i++) {
+        try {
+          // Auto-sync offline queue if connection is restored
+          const syncResult = await processQueue(recordPayment);
+          if (syncResult.synced > 0) {
+            Vibration.vibrate([0, 50, 50, 50]);
+          }
+          setPendingSync(getPendingCount());
 
-        const res = await getCustomers('', true);
-        const list = res.customers || [];
-        setAllCustomers(list);
-        applyFilters(list, query, activeFilter);
-        setError(null);
-        break;
-      } catch (err) {
-        if (i < attempts - 1) {
-          await new Promise(r => setTimeout(r, 1500));
-        } else {
-          if (allCustomers.length === 0) {
-            setError(err.message);
+          const res = await getCustomers('', true);
+          const list = res.customers || [];
+          setAllCustomers(list);
+          applyFilters(list, query, activeFilter);
+          setError(null);
+          break;
+        } catch (err) {
+          if (i < attempts - 1) {
+            await new Promise(r => setTimeout(r, 1500));
+          } else {
+            if (allCustomers.length === 0) {
+              setError(err.message);
+            }
           }
         }
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
       }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
