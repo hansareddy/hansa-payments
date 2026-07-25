@@ -62,101 +62,81 @@ export default function PaymentScreen({ route, navigation }) {
 
   const handleSubmit = async () => {
     if (!paymentMode) {
-      Alert.alert('Payment Method Required', 'Please select Cash or a UPI Application.');
+      if (Platform.OS === 'web') alert('Payment Method Required: Please select Cash or a UPI Application.');
+      else Alert.alert('Payment Method Required', 'Please select Cash or a UPI Application.');
       return;
     }
     if (!transactionId.trim()) {
-      Alert.alert('Transaction ID Required', 'Please enter the Transaction ID / Reference Number before submitting.');
+      if (Platform.OS === 'web') alert('Transaction ID Required: Please enter the Transaction ID / Reference Number before submitting.');
+      else Alert.alert('Transaction ID Required', 'Please enter the Transaction ID / Reference Number before submitting.');
       return;
     }
     if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
-      Alert.alert('Invalid Amount', 'Please input a valid transaction amount.');
+      if (Platform.OS === 'web') alert('Invalid Amount: Please input a valid transaction amount.');
+      else Alert.alert('Invalid Amount', 'Please input a valid transaction amount.');
       return;
     }
 
     const discountVal = discount.trim() ? parseFloat(discount) : 0;
     if (isNaN(discountVal) || discountVal < 0) {
-      Alert.alert('Invalid Discount', 'Please input a valid discount amount.');
+      if (Platform.OS === 'web') alert('Invalid Discount: Please input a valid discount amount.');
+      else Alert.alert('Invalid Discount', 'Please input a valid discount amount.');
       return;
     }
 
     Vibration.vibrate(30);
+    setLoading(true);
 
-    const displayMode = paymentMode === 'CASH' ? 'Cash' : `UPI (${paymentMode})`;
-    const dateStr = getTodayString();
+    try {
+      const apiMode = paymentMode === 'CASH' ? 'CASH' : 'BANK';
+      let notes = paymentMode === 'CASH' ? 'CASH payment' : `UPI: ${paymentMode}`;
+      if (discountVal > 0) {
+        notes += ` (Discounted ₹${discountVal})`;
+      }
 
-    const confirmationMsg = discountVal > 0 
-      ? `Record ${displayMode} collection of ${formatCurrency(parseFloat(amount))} with a ${formatCurrency(discountVal)} discount for ${customer.username}?`
-      : `Record ${displayMode} collection of ${formatCurrency(parseFloat(amount))} for ${customer.username}?`;
+      const payload = {
+        rowIndex: customer.rowIndex,
+        username: customer.username,
+        paymentMode: apiMode,
+        paymentAmount: parseFloat(amount),
+        discount: discountVal,
+        transactionId: transactionId.trim(),
+        notes: notes,
+        monthKey: selectedMonthKey,
+      };
 
-    Alert.alert(
-      'Confirm Transaction',
-      confirmationMsg,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Save Payment',
-          onPress: async () => {
-            setLoading(true);
-              try {
-                const apiMode = paymentMode === 'CASH' ? 'CASH' : 'BANK';
-                
-                let notes = paymentMode === 'CASH' ? 'CASH payment' : `UPI: ${paymentMode}`;
-                if (discountVal > 0) {
-                  notes += ` (Discounted ₹${discountVal})`;
-                }
+      const result = await recordPayment(payload);
 
-                const payload = {
-                  rowIndex: customer.rowIndex,
-                  username: customer.username,
-                  paymentMode: apiMode,
-                  paymentAmount: parseFloat(amount),
-                  discount: discountVal,
-                  transactionId: transactionId.trim(),
-                  notes: notes,
-                  monthKey: selectedMonthKey,
-                };
-
-                const result = await recordPayment(payload);
-
-                Vibration.vibrate([0, 100, 50, 100]);
-                setUpdatedCustomer(result.customer);
-                setSuccess(true);
-              } catch (err) {
-                if (isNetworkError(err)) {
-                  const payload = {
-                    rowIndex: customer.rowIndex,
-                    paymentMode: paymentMode === 'CASH' ? 'CASH' : 'BANK',
-                    paymentAmount: parseFloat(amount),
-                    discount: discountVal,
-                    transactionId: transactionId.trim(),
-                    notes: paymentMode === 'CASH' ? 'CASH payment' : `UPI: ${paymentMode}`,
-                  };
-                  await enqueue(payload, customer.username);
-                  Vibration.vibrate([0, 100, 50, 100]);
-                  
-                  // Compute local balance prediction for instant display
-                  const paidVal = parseFloat(amount);
-                  const newBal = Math.max(0, (customer.balance || 0) - paidVal - discountVal);
-                  setUpdatedCustomer({
-                    ...customer,
-                    balance: newBal,
-                    discount: (customer.discount || 0) + discountVal,
-                    date1: dateStr,
-                    transactionId: transactionId.trim(),
-                    isOffline: true,
-                  });
-                  setSuccess(true);
-                } else {
-                  Alert.alert('Transaction Failed', err.message);
-                }
-              } finally {
-                setLoading(false);
-              }
-          },
-        },
-      ]
-    );
+      Vibration.vibrate([0, 100, 50, 100]);
+      setUpdatedCustomer(result.customer || { ...customer, ...payload, date1: getTodayString() });
+      setSuccess(true);
+    } catch (err) {
+      if (isNetworkError(err)) {
+        const payload = {
+          rowIndex: customer.rowIndex,
+          paymentMode: paymentMode === 'CASH' ? 'CASH' : 'BANK',
+          paymentAmount: parseFloat(amount),
+          discount: discountVal,
+          transactionId: transactionId.trim(),
+          notes: paymentMode === 'CASH' ? 'CASH payment' : `UPI: ${paymentMode}`,
+          monthKey: selectedMonthKey,
+        };
+        await enqueue(payload, customer.username);
+        Vibration.vibrate([0, 100, 50, 100]);
+        setUpdatedCustomer({
+          ...customer,
+          transactionId: transactionId.trim(),
+          date1: getTodayString(),
+          isOffline: true,
+        });
+        setSuccess(true);
+      } else {
+        if (Platform.OS === 'web') alert(`Transaction Failed: ${err.message}`);
+        else Alert.alert('Transaction Failed', err.message);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (success && updatedCustomer) {
