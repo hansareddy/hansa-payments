@@ -124,13 +124,17 @@ export default function CustomerListScreen({ navigation }) {
   const totalBalanceDue = allCustomers.reduce((sum, c) => sum + (c.balance || 0), 0);
 
   // Extract complaints
-  const activeComplaints = allCustomers.filter(c => 
-    c.forField && 
-    c.forField.trim() !== '' && 
-    c.forField !== 'New account created' && 
-    !c.forField.toLowerCase().startsWith('cash') && 
-    !c.forField.toLowerCase().startsWith('upi')
-  );
+  const activeComplaints = allCustomers.filter(c => {
+    if (!c.forField || c.forField.trim() === '') return false;
+    const val = c.forField.trim().toLowerCase();
+    return val !== 'new account created' &&
+           val !== 'active' &&
+           val !== 'inactive' &&
+           val !== 'new' &&
+           !val.startsWith('cash') &&
+           !val.startsWith('upi') &&
+           !val.startsWith('bank');
+  });
 
   // Aggregate payment records across all accounts for Home Screen History
   const getAllPayments = () => {
@@ -253,11 +257,48 @@ export default function CustomerListScreen({ navigation }) {
           <Text style={styles.rowSub} numberOfLines={1}>
             Ph: {item.mobile || '—'}  •  Expiry: {item.expiryDate || item.date1 || '—'}
           </Text>
-          {item.forField && item.forField.trim() !== '' && item.forField !== 'New account created' && !item.forField.toLowerCase().startsWith('cash') && !item.forField.toLowerCase().startsWith('upi') && (
+          {item.forField && item.forField.trim() !== '' && item.forField !== 'New account created' && !['active', 'inactive', 'new', 'cash', 'upi', 'bank'].includes(item.forField.trim().toLowerCase()) && !item.forField.toLowerCase().startsWith('cash') && !item.forField.toLowerCase().startsWith('upi') && (
             <Text style={[styles.complaintSub, isUrgent && { color: '#DC2626' }]} numberOfLines={1}>
               Note: {displayNotes}
             </Text>
           )}
+
+          {/* 12-Month Payment Status Preview Bar */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 6, gap: 3 }}>
+            {(item.monthlyPayments || [
+              { short: 'Jan', status: 'Unpaid' },
+              { short: 'Feb', status: 'Unpaid' },
+              { short: 'Mar', status: 'Unpaid' },
+              { short: 'Apr', status: 'Unpaid' },
+              { short: 'May', status: 'Unpaid' },
+              { short: 'Jun', status: 'Unpaid' },
+              { short: 'Jul', status: 'Unpaid' },
+              { short: 'Aug', status: 'Unpaid' },
+              { short: 'Sep', status: 'Unpaid' },
+              { short: 'Oct', status: 'Unpaid' },
+              { short: 'Nov', status: 'Unpaid' },
+              { short: 'Dec', status: 'Unpaid' },
+            ]).map((m, idx) => {
+              const isPaid = m.status === 'Paid';
+              return (
+                <View
+                  key={m.key || idx}
+                  style={{
+                    paddingHorizontal: 4,
+                    paddingVertical: 1,
+                    borderRadius: 4,
+                    backgroundColor: isPaid ? '#D1FAE5' : '#FEE2E2',
+                    borderWidth: 0.5,
+                    borderColor: isPaid ? '#A7F3D0' : '#FECACA',
+                  }}
+                >
+                  <Text style={{ fontSize: 9, fontWeight: '700', color: isPaid ? '#047857' : '#B91C1C' }}>
+                    {m.short} {isPaid ? '✓' : '✗'}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
         </View>
 
         <View style={styles.rowRight}>

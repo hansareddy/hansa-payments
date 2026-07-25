@@ -109,6 +109,9 @@ function invalidateCache() {
   customerCache.timestamp = 0;
 }
 
+// Invalidate any stale in-memory cache on startup
+invalidateCache();
+
 // ── Health check (public) ─────────────────────────────────────────────────────
 
 app.get('/api/health', (req, res) => {
