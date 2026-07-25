@@ -818,4 +818,6 @@ module.exports = {
   addCustomer,
   updateComplaint,
   getAllRows,
+  detectColumnsFromHeader,
+  rowToCustomer,
 };

@@ -175,12 +175,25 @@ app.get('/api/test-sheets', async (req, res) => {
   try {
     const sheetsModule = require('./sheets');
     const rows = await sheetsModule.getAllRows();
+    let colMap = null;
+    let rawRow123 = null;
+    let parsedRow123 = null;
+    if (rows && rows.length > 0) {
+      colMap = sheetsModule.detectColumnsFromHeader ? sheetsModule.detectColumnsFromHeader(rows[0]) : null;
+      if (rows.length >= 123) {
+        rawRow123 = rows[122];
+        parsedRow123 = sheetsModule.rowToCustomer ? sheetsModule.rowToCustomer(rows[122], 123) : null;
+      }
+    }
     const customers = await sheetsModule.getAllCustomers();
     const testUser = customers.find(c => c.username && c.username.includes('TEST_SUBSCRIBER_VIP_01'));
     res.json({
       rowsLength: rows ? rows.length : 0,
+      colMap,
+      rawRow123,
+      parsedRow123,
       totalCount: customers.length,
-      testUserSample: testUser || null,
+      testUserFromGetAll: testUser || null,
     });
   } catch (err) {
     res.status(500).json({ error: err.message, stack: err.stack });
