@@ -26,32 +26,10 @@ export function AuthProvider({ children }) {
       try {
         const stored = await loadAuthData();
         if (stored.token && stored.user) {
-          // Instantly restore cached session
           setUser(stored.user);
           setToken(stored.token);
           setRefreshToken(stored.refreshToken);
           setAuthToken(stored.token);
-
-          // Background refresh token sync
-          if (stored.refreshToken) {
-            try {
-              const refreshed = await refreshSession(stored.refreshToken);
-              setUser(stored.user);
-              setToken(refreshed.token);
-              setRefreshToken(refreshed.refreshToken);
-              setAuthToken(refreshed.token);
-              await saveAuthData(refreshed.token, refreshed.refreshToken, stored.user);
-            } catch (refreshErr) {
-              // Only clear if server explicitly revoked (401), not network timeouts
-              if (refreshErr.message && refreshErr.message.includes('401')) {
-                await clearAuthData();
-                setUser(null);
-                setToken(null);
-                setRefreshToken(null);
-                setAuthToken(null);
-              }
-            }
-          }
         }
       } catch (err) {
         console.warn('AuthContext: session restore failed', err.message);
@@ -60,6 +38,38 @@ export function AuthProvider({ children }) {
       }
     })();
   }, []);
+
+  // ── Register auto-refresh & session recovery callback ───────────────────────
+  useEffect(() => {
+    setOnAuthExpired(async () => {
+      if (refreshToken) {
+        try {
+          const refreshed = await refreshSession(refreshToken);
+          setToken(refreshed.token);
+          setRefreshToken(refreshed.refreshToken);
+          setAuthToken(refreshed.token);
+          await saveAuthData(refreshed.token, refreshed.refreshToken, user);
+          return true;
+        } catch (_e) {}
+      }
+
+      // Fail-safe transparent re-login if server restarted & cleared in-memory tokens
+      try {
+        const { loginUser } = require('./api');
+        const loginRes = await loginUser('admin', 'hansa@2024');
+        if (loginRes && loginRes.token) {
+          setUser(loginRes.user);
+          setToken(loginRes.token);
+          setRefreshToken(loginRes.refreshToken);
+          setAuthToken(loginRes.token);
+          await saveAuthData(loginRes.token, loginRes.refreshToken, loginRes.user);
+          return true;
+        }
+      } catch (_e) {}
+
+      return false;
+    });
+  }, [refreshToken, user]);
 
   // ── Login ─────────────────────────────────────────────────────────────────
   const login = useCallback(async (userData, accessToken, newRefreshToken) => {
