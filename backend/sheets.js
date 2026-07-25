@@ -496,15 +496,24 @@ async function getCustomerByRow(rowIndex, username = null) {
   return all.find(c => c.rowIndex === idx) || null;
 }
 
+function colIndexToLetter(idx) {
+  let letter = '';
+  let temp = idx;
+  while (temp >= 0) {
+    letter = String.fromCharCode((temp % 26) + 65) + letter;
+    temp = Math.floor(temp / 26) - 1;
+  }
+  return letter;
+}
+
 /**
- * Record a payment and update row.
- * Date is always set to today's date (column K).
- * Transaction ID is written to column N.
+ * Record a payment and update row in Google Sheets.
+ * Always writes to the target 2026 month grid cell (Jan-26 ... Dec-26).
+ * Writes Transaction ID to Column N / TRANSACTION_ID.
  */
 async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmount = 0, transactionId = '', notes = '', targetUsername = '', selectedMonthKey = '') {
   const discountVal = parseFloat(discountAmount) || 0;
 
-  // Always use today's date
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const shortDate = `${today.getDate()}/${today.getMonth() + 1}`;
@@ -519,111 +528,75 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
       if (!current) throw new Error(`Customer not found for row ${rowIndex} / ${targetUsername}`);
       const index = current.rowIndex;
 
-      let newBank = current.bank;
-      let newCash = current.cash;
-      const newDiscount = current.discount + discountVal;
-
-      if (paymentMode === 'BANK') {
-        newBank = current.bank + paymentAmount;
-      } else if (paymentMode === 'CASH') {
-        newCash = current.cash + paymentAmount;
+      // 1. Resolve Target Month Key
+      let targetMonthKey = selectedMonthKey;
+      if (!targetMonthKey && current.monthlyPayments) {
+        const unpaidObj = current.monthlyPayments.find(m => m.status === 'Unpaid');
+        if (unpaidObj) targetMonthKey = unpaidObj.key;
+      }
+      if (!targetMonthKey) {
+        const monthShort = MONTH_LIST[today.getMonth()].key;
+        targetMonthKey = monthShort;
       }
 
-      const totalPaid = newBank + newCash;
-      const newBalance = Math.max(0, current.due - paymentAmount);
+      const targetMonthIndex = MONTH_LIST.findIndex(m => m.key === targetMonthKey);
+      const monthColIdx = (COL.MONTH_COLS && COL.MONTH_COLS[targetMonthKey] !== undefined && COL.MONTH_COLS[targetMonthKey] !== -1)
+        ? COL.MONTH_COLS[targetMonthKey]
+        : (targetMonthIndex !== -1 ? 8 + targetMonthIndex : -1);
 
-      // 1. If legacy billing columns exist
-      if (COL.BANK !== -1 && COL.CASH !== -1 && COL.BALANCE !== -1) {
-        const updateRange = `'${sheetName}'!F${index}:N${index}`;
-        const values = [[
-          newDiscount || 0,
-          current.charges || 0,
-          newBank || 0,
-          newCash || 0,
-          newBalance,
-          todayStr,
-          current.date2,
-          current.forField || '',
-          transactionId || current.transactionId || ''
-        ]];
+      if (monthColIdx !== -1) {
+        const colLetter = colIndexToLetter(monthColIdx);
+        
+        const existingMonthObj = current.monthlyPayments ? current.monthlyPayments.find(m => m.key === targetMonthKey) : null;
+        const existingCellText = (existingMonthObj && existingMonthObj.details && existingMonthObj.details !== 'Unpaid' && existingMonthObj.details !== 'Paid')
+          ? existingMonthObj.details.trim()
+          : '';
 
+        const newEntry = `${paymentAmount} (${paymentMode} ${shortDate})`;
+        const updatedCellText = existingCellText ? `${existingCellText}, ${newEntry}` : newEntry;
+
+        console.log(`📝 Writing month payment cell ${colLetter}${index}: "${updatedCellText}"`);
         await client.spreadsheets.values.update({
           spreadsheetId,
-          range: updateRange,
+          range: `'${sheetName}'!${colLetter}${index}`,
           valueInputOption: 'USER_ENTERED',
-          requestBody: { values },
+          requestBody: { values: [[updatedCellText]] },
         });
-      } else {
-        // 2. Month Grid layout update:
-        // Find target month key to update
-        let targetMonthKey = selectedMonthKey;
-        if (!targetMonthKey && current.monthlyPayments) {
-          const unpaidObj = current.monthlyPayments.find(m => m.status === 'Unpaid');
-          if (unpaidObj) targetMonthKey = unpaidObj.key;
-        }
-        if (!targetMonthKey) {
-          // Default to current month key e.g. Jul-26
-          const monthShort = MONTH_LIST[today.getMonth()].key;
-          targetMonthKey = monthShort;
-        }
+      }
 
-        const targetMonthIndex = MONTH_LIST.findIndex(m => m.key === targetMonthKey);
-        const monthColIdx = (COL.MONTH_COLS && COL.MONTH_COLS[targetMonthKey] !== undefined && COL.MONTH_COLS[targetMonthKey] !== -1)
-          ? COL.MONTH_COLS[targetMonthKey]
-          : (targetMonthIndex !== -1 ? 8 + targetMonthIndex : -1);
-
-        if (monthColIdx !== -1) {
-          const colLetter = String.fromCharCode(65 + monthColIdx);
-          
-          // Check existing month cell content from current object
-          const existingMonthObj = current.monthlyPayments ? current.monthlyPayments.find(m => m.key === targetMonthKey) : null;
-          const existingCellText = (existingMonthObj && existingMonthObj.details && existingMonthObj.details !== 'Unpaid' && existingMonthObj.details !== 'Paid')
-            ? existingMonthObj.details.trim()
-            : '';
-
-          const newEntry = `${paymentAmount} (${paymentMode} ${shortDate})`;
-          const updatedCellText = existingCellText ? `${existingCellText}, ${newEntry}` : newEntry;
-
-          console.log(`📝 Writing month payment cell ${colLetter}${index}: "${updatedCellText}"`);
+      // 2. Write Transaction ID (Column N or TRANSACTION_ID)
+      if (transactionId && transactionId.trim()) {
+        const txnColIdx = COL.TRANSACTION_ID !== -1 ? COL.TRANSACTION_ID : 13; // Column N (index 13)
+        const txnColLetter = colIndexToLetter(txnColIdx);
+        try {
           await client.spreadsheets.values.update({
             spreadsheetId,
-            range: `'${sheetName}'!${colLetter}${index}`,
+            range: `'${sheetName}'!${txnColLetter}${index}`,
             valueInputOption: 'USER_ENTERED',
-            requestBody: { values: [[updatedCellText]] },
+            requestBody: { values: [[transactionId.trim()]] },
           });
-        } else {
-          // Fallback to Column J ("Last Payment")
-          const paymentSummary = `Paid ₹${paymentAmount} via ${paymentMode} on ${todayStr}${transactionId ? ' (Txn: ' + transactionId + ')' : ''}`;
-          try {
-            await client.spreadsheets.values.update({
-              spreadsheetId,
-              range: `'${sheetName}'!J1`,
-              valueInputOption: 'USER_ENTERED',
-              requestBody: { values: [['Last Payment']] },
-            });
-          } catch (e) {}
-
-          await client.spreadsheets.values.update({
-            spreadsheetId,
-            range: `'${sheetName}'!J${index}`,
-            valueInputOption: 'USER_ENTERED',
-            requestBody: { values: [[paymentSummary]] },
-          });
-        }
-
-        // Update Total Due column if present
-        if (COL.DUE !== -1) {
-          const dueColLetter = String.fromCharCode(65 + COL.DUE);
-          await client.spreadsheets.values.update({
-            spreadsheetId,
-            range: `'${sheetName}'!${dueColLetter}${index}`,
-            valueInputOption: 'USER_ENTERED',
-            requestBody: { values: [[newBalance]] },
-          });
+        } catch (e) {
+          console.warn('Could not write Transaction ID to column:', e.message);
         }
       }
 
-      console.log(`✅ Payment recorded on Google Sheet row ${index}`);
+      // 3. Write Discount (if discountVal > 0 and DISCOUNT column exists)
+      if (discountVal > 0 && COL.DISCOUNT !== -1) {
+        const discColLetter = colIndexToLetter(COL.DISCOUNT);
+        const newTotalDiscount = (current.discount || 0) + discountVal;
+        try {
+          await client.spreadsheets.values.update({
+            spreadsheetId,
+            range: `'${sheetName}'!${discColLetter}${index}`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: { values: [[newTotalDiscount]] },
+          });
+        } catch (e) {
+          console.warn('Could not write discount to column:', e.message);
+        }
+      }
+
+      console.log(`✅ Payment recorded on Google Sheet row ${index} for ${current.username}`);
 
       // Log in memory transaction history
       if (!paymentTransactionLogs[current.username]) {
@@ -636,10 +609,10 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
         amount: paymentAmount,
         discount: discountVal,
         transactionId: transactionId || 'N/A',
-        notes: notes || `${paymentMode} collection`
+        notes: notes || `${paymentMode} collection for ${targetMonthKey}`
       });
 
-      return await getCustomerByRow(index);
+      return await getCustomerByRow(index, targetUsername);
     } catch (err) {
       console.error('❌ Google Sheet update error:', err.message);
       throw err;
@@ -647,22 +620,7 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
   }
 
   // Local fallback
-  const customer = localLedger.find(c => c.rowIndex === index);
-  if (!customer) throw new Error(`Customer not found at row ${index}`);
-
-  if (paymentMode === 'BANK') {
-    customer.bank += paymentAmount;
-  } else if (paymentMode === 'CASH') {
-    customer.cash += paymentAmount;
-  }
-
-  customer.discount += discountVal;
-  const totalPaid = customer.bank + customer.cash;
-  customer.balance = customer.due - totalPaid + customer.charges - customer.discount;
-  customer.date1 = todayStr;
-  if (transactionId) customer.transactionId = transactionId;
-
-  return customer;
+  return null;
 }
 
 /**
