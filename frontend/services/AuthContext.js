@@ -9,7 +9,7 @@
  */
 
 import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
-import { setAuthToken, refreshSession, logoutUser, setOnAuthExpired } from './api';
+import { setAuthToken, refreshSession, logoutUser, setOnAuthExpired, loginUser } from './api';
 import { saveAuthData, loadAuthData, clearAuthData } from './SecureStorage';
 
 const AuthContext = createContext(null);
@@ -55,7 +55,6 @@ export function AuthProvider({ children }) {
 
       // Fail-safe transparent re-login if server restarted & cleared in-memory tokens
       try {
-        const { loginUser } = require('./api');
         const loginRes = await loginUser('admin', 'hansa@2024');
         if (loginRes && loginRes.token) {
           setUser(loginRes.user);
