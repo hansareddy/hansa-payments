@@ -89,7 +89,7 @@ app.use((req, res, next) => {
 
 // ── In-memory response cache ──────────────────────────────────────────────────
 
-const CACHE_TTL = 2 * 60 * 1000; // 2 minutes
+const CACHE_TTL = 5 * 1000; // 5 seconds
 let customerCache = { data: null, timestamp: 0 };
 
 function getCachedCustomers() {

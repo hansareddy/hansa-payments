@@ -238,6 +238,10 @@ function rowToCustomer(row, rowIndex) {
   const status = COL.STATUS !== -1 ? (row[COL.STATUS] || '').trim() : '';
   const basePack = COL.BASE_PACK !== -1 ? (row[COL.BASE_PACK] || '').trim() : '';
   const expiryDate = COL.EXPIRY_DATE !== -1 ? (row[COL.EXPIRY_DATE] || '').trim() : '';
+  const date1 = COL.DATE1 !== -1 ? (row[COL.DATE1] || '').trim() : '';
+  const date2 = COL.DATE2 !== -1 ? (row[COL.DATE2] || '').trim() : '';
+  const forField = COL.FOR !== -1 ? (row[COL.FOR] || '').trim() : '';
+  const transactionId = COL.TRANSACTION_ID !== -1 ? (row[COL.TRANSACTION_ID] || '').trim() : '';
 
   const bank = COL.BANK !== -1 ? parseCurrency(row[COL.BANK]) : 0;
   const cash = COL.CASH !== -1 ? parseCurrency(row[COL.CASH]) : 0;
@@ -255,19 +259,27 @@ function rowToCustomer(row, rowIndex) {
 
     const cellVal = (row[colIdx] !== undefined) ? String(row[colIdx]).trim() : '';
     
-    // Extract numbers to sum multiple payments in the same month (e.g. "150 (Cash 5/7), 150 (UPI 20/7)")
     let totalPaidInMonth = 0;
     if (cellVal !== '') {
-      const numberMatches = cellVal.match(/\b\d+(\.\d+)?\b/g);
-      if (numberMatches && numberMatches.length > 0) {
-        totalPaidInMonth = numberMatches.reduce((acc, numStr) => acc + parseFloat(numStr), 0);
-      }
+      const entries = cellVal.split(',');
+      entries.forEach(entry => {
+        const eStr = entry.trim();
+        if (eStr) {
+          const match = eStr.match(/^(\d+(\.\d+)?)/) || eStr.match(/(\d+(\.\d+)?)\s*(?=\()/);
+          if (match) {
+            totalPaidInMonth += parseFloat(match[1]) || 0;
+          } else {
+            const num = parseFloat(eStr);
+            if (!isNaN(num)) totalPaidInMonth += num;
+          }
+        }
+      });
     }
 
     const isPaid = cellVal !== '' && 
                    !cellVal.toLowerCase().includes('unpaid') && 
                    !cellVal.toLowerCase().includes('due') &&
-                   (totalPaidInMonth >= monthlyFee || cellVal.toLowerCase().includes('paid'));
+                   (totalPaidInMonth > 0 || cellVal.toLowerCase().includes('paid'));
 
     const isPartial = !isPaid && totalPaidInMonth > 0;
 
