@@ -53,25 +53,35 @@ export default function CustomerListScreen({ navigation }) {
     return () => backHandler.remove();
   }, []);
 
-  const loadData = async () => {
+  const loadData = async (attempts = 3) => {
     setError(null);
-    try {
-      // Auto-sync offline queue if connection is restored
-      const syncResult = await processQueue(recordPayment);
-      if (syncResult.synced > 0) {
-        Vibration.vibrate([0, 50, 50, 50]);
-      }
-      setPendingSync(getPendingCount());
+    for (let i = 0; i < attempts; i++) {
+      try {
+        // Auto-sync offline queue if connection is restored
+        const syncResult = await processQueue(recordPayment);
+        if (syncResult.synced > 0) {
+          Vibration.vibrate([0, 50, 50, 50]);
+        }
+        setPendingSync(getPendingCount());
 
-      const res = await getCustomers();
-      const list = res.customers || [];
-      setAllCustomers(list);
-      applyFilters(list, query, activeFilter);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+        const res = await getCustomers();
+        const list = res.customers || [];
+        setAllCustomers(list);
+        applyFilters(list, query, activeFilter);
+        setError(null);
+        break;
+      } catch (err) {
+        if (i < attempts - 1) {
+          await new Promise(r => setTimeout(r, 1500));
+        } else {
+          if (allCustomers.length === 0) {
+            setError(err.message);
+          }
+        }
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   };
 

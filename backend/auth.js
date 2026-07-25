@@ -15,8 +15,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'hansa-comm-jwt-secret-2024-xK9pL2';
-const ACCESS_TOKEN_EXPIRY = '15m';
-const REFRESH_TOKEN_EXPIRY = '30d';
+const ACCESS_TOKEN_EXPIRY = '365d';
+const REFRESH_TOKEN_EXPIRY = '365d';
 const BCRYPT_ROUNDS = 12;
 
 // ---------------------------------------------------------------------------
@@ -75,7 +75,7 @@ function authenticate(username, password) {
   return {
     token,
     refreshToken,
-    expiresIn: 900, // 15 minutes in seconds
+    expiresIn: 31536000, // 365 days in seconds
     user: {
       id: user.id,
       username: user.username,
@@ -127,7 +127,7 @@ function refreshAccessToken(refreshToken) {
   const result = {
     token: newAccessToken,
     refreshToken: newRefreshToken,
-    expiresIn: 900,
+    expiresIn: 31536000, // 365 days in seconds
   };
 
   recentlyRotatedTokens.set(refreshToken, { result, timestamp: Date.now() });
