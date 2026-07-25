@@ -165,33 +165,51 @@ export default function CustomerListScreen({ navigation }) {
             rowIndex: c.rowIndex,
           });
         });
-      } else if (c.bank > 0 || c.cash > 0 || c.transactionId) {
-        if (c.bank > 0) {
-          records.push({
-            id: `bank_${c.rowIndex}`,
-            username: c.username,
-            mobile: c.mobile,
-            date: c.date1 || 'Recent',
-            mode: 'BANK',
-            amount: c.bank,
-            discount: c.discount || 0,
-            transactionId: c.transactionId || 'SHEET_REC',
-            notes: 'Bank / UPI Payment',
-          });
-        }
-        if (c.cash > 0) {
-          records.push({
-            id: `cash_${c.rowIndex}`,
-            username: c.username,
-            mobile: c.mobile,
-            date: c.date1 || 'Recent',
-            mode: 'CASH',
-            amount: c.cash,
-            discount: 0,
-            transactionId: 'CASH_PAYMENT',
-            notes: 'Cash Collection',
-          });
-        }
+      }
+      
+      if (c.monthlyPayments && c.monthlyPayments.length > 0) {
+        c.monthlyPayments.forEach(m => {
+          if (m.details && m.details !== 'Unpaid') {
+            const parts = String(m.details).split(',');
+            parts.forEach((p, pIdx) => {
+              const pStr = p.trim();
+              if (pStr) {
+                const match = pStr.match(/^(\d+(\.\d+)?)/) || pStr.match(/(\d+(\.\d+)?)\s*(?=\()/);
+                const amt = match ? parseFloat(match[1]) : (m.paidAmount || m.amount || 300);
+                
+                let mode = 'BANK';
+                const pUpper = pStr.toUpperCase();
+                if (pUpper.includes('CASH')) mode = 'CASH';
+                else if (pUpper.includes('GPAY')) mode = 'GPAY';
+                else if (pUpper.includes('PHONEPE')) mode = 'PHONEPE';
+                else if (pUpper.includes('PAYTM')) mode = 'PAYTM';
+                else if (pUpper.includes('UPI')) mode = 'UPI';
+
+                const dateMatch = pStr.match(/\((.*?)\)/);
+                const dateStr = dateMatch ? dateMatch[1] : m.name;
+
+                // Avoid duplicating if already present in paymentHistory
+                const recId = `tx_${c.rowIndex}_${m.key}_${pIdx}`;
+                if (!records.some(r => r.id === recId || (r.monthKey === m.key && r.username === c.username))) {
+                  records.push({
+                    id: recId,
+                    username: c.username,
+                    mobile: c.mobile,
+                    rowIndex: c.rowIndex,
+                    date: dateStr,
+                    monthKey: m.key,
+                    monthName: m.name,
+                    mode: mode,
+                    amount: amt,
+                    discount: c.discount || 0,
+                    transactionId: c.transactionId || 'SHEET_REC',
+                    notes: `${m.name} (${pStr})`,
+                  });
+                }
+              }
+            });
+          }
+        });
       }
     });
 
