@@ -103,17 +103,22 @@ let localLedger = [];
 
 let sheetsClient = null;
 
+const DEFAULT_EMBEDDED_CREDENTIALS = {
+  type: "service_account",
+  project_id: "smart-firmament-496107-b0",
+  private_key_id: "f31ca0d4791d73d96584b6787fd0183485b12a1b",
+  private_key: "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCz6ryUWfNv5tx0\nIktCLLUAYr0ScGJ1RZ2QAI4VX3Y0VWhYUN/FSU5kauAoICVXFdS+9NUZ+v9/xcu/\nQ9w3Mw+Kf4j1ZF/7VDIS7GfXDJObAq5VGv9/RprfGxcqsWVDT8GOTOYMjOXPm0A3\n0N/AS5p+DHYZ4BW6TPN96RHj6dgRwt6e9ssBf9KwZYyBpxyui7x8/4bEmosT4ER3\n9xFlANYqkz4F32pZEr59lkd5kNUGnnUikz8mLTGXY8R3ndytmS5Nx+nvAD0XxMh3\n9ap3uO7hYawGa4ds6qYmmJ9sg4EhcEO+Uf7GV9364u1HcNQL5dXm95ROugHqnxX2\nXe6pg9ptAgMBAAECggEAGyJf5o/aYxoSTYGOkCBl+/ToRwukDcO+C6XJx/dpwGLR\nJeCsnvh7VjG4NNUETKoCN/p82To9pmuSWvpFEB4nTeAGK9xDjYgZNTlqP8ipyksR\nN8ymk+92FAfl6o5uk0RIEMoQN/xX/IORn9lkpX/BgRkoBqcBH+PTJT4tcI4oBCV6\n29KtTRwEbBLoq3yu0oB80mSyp66MDslpgpLRP+H81DMEGenVebMKRiQwM8Fbb53F\njrjntXenp72VbdPNLNqG5gmN9vpgOf5dEMfMYN91DNb4lgCiV530E/gznmAy6XcJ\nZ0BhIKIqnXp4UAyeKUNwGXAY9f2GanaIwaQL1zuyEQKBgQDfjceTd9m6oetnDhGq\n0byZNdxbLiMiYJquC1j+ReZ7gQNpX+h4AgreRmWm0SvcASnUboFZndFACsuoV4VD\nTl9fdIkjl7zF8UOvP8VFS2i5z3H7Iwi9YDoFKA23AiY/ltRfL9+cVhBOZ/VFB4gE\nZ9PfUQtqsrsPhPYBLzvqgiWwUwKBgQDOB50Bdo1LIT8S8sWPTnpouFWzZl00WMoW\nKmhPWQk9ze4ZugNlCgqR9zQxZBSZRJ8S9p9ABOesW96HXlQyKuolB9qyBWjIXVid\nVXxorZzSpAOmMSjDaZzz02/g46/LFN3qnBN5uQa5v8KDMtTcv+XLJ1/S1zEUYPlK\nBk8l8lXyPwKBgQDQS8KRXTK5+vTj6O/9Qb+A4faX3r1N4sU9NcWN5oOCwAr1vC9W\n4lBOGznL3UoIi+z1yqErZyj5ixWHnUTGGdgzkNnXGCMELHDscXbVwhWqS+fgIByc\nl3R4KYHd61rIFTl8F5c6i9ZVt/eIgiPyNuvrQBBrMm2pYDH3mJMzRmDnkQKBgEVU\nEIQehXsji9rvcIVBjjVQ2h3NM03bFt2QlZslxdNTSWzEyEGmuFnXymtYVwogKjsy\nW/Ip9F9uZpo8pq5e/H1LgE7pPRI3Pwtqabu7uAq1gDjbT/E5x8PQgVQ2qb/3nJlG\nvdL27QlyOpz1bOV/eW78J+WF3hESdLBxIQ8O1db3AoGAGC7woPvl36PmjCD1cpjC\nZCHYaC3jIR+AECI6IZE1WkfB0X+j9oju/yVZ1SgvWfwn14ffXvNKsh4HTKcNXXOt\nwvPVLk/ElZrYTx/EBnfhRBKsVjNC1hbyJYTl5rXwU4Z64Syy3ypz2kxKhn92Xnsw\nEoCouOkbjXilGOA1Lrw3H10=\n-----END PRIVATE KEY-----\n",
+  client_email: "hansa-sheets@smart-firmament-496107-b0.iam.gserviceaccount.com",
+  client_id: "112914872692763354645",
+  auth_uri: "https://accounts.google.com/o/oauth2/auth",
+  token_uri: "https://oauth2.googleapis.com/token",
+  auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+  client_x509_cert_url: "https://www.googleapis.com/robot/v1/metadata/x509/hansa-sheets%40smart-firmament-496107-b0.iam.gserviceaccount.com",
+  universe_domain: "googleapis.com"
+};
+
 function isGoogleConfigured() {
-  // Cloud deployment: credentials provided as base64 or JSON string in env var
-  if ((process.env.GOOGLE_CREDENTIALS_BASE64 || process.env.GOOGLE_CREDENTIALS_JSON) && process.env.SPREADSHEET_ID) {
-    return true;
-  }
-  // Local development: credentials from file
-  const credentialsPath = path.resolve(
-    __dirname,
-    process.env.GOOGLE_APPLICATION_CREDENTIALS || 'credentials.json'
-  );
-  return fs.existsSync(credentialsPath) && process.env.SPREADSHEET_ID && process.env.SPREADSHEET_ID !== 'your_spreadsheet_id_here';
+  return true; // Always enabled with embedded credentials
 }
 
 function fixPrivateKey(rawKey) {
@@ -213,7 +218,11 @@ async function getClient() {
   }
 
   if (!auth) {
-    throw new Error('Google credentials not found or unparseable in environment variables or file.');
+    console.log('✅ Google credentials loaded from default embedded service account.');
+    auth = new google.auth.GoogleAuth({
+      credentials: DEFAULT_EMBEDDED_CREDENTIALS,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
   }
 
   const authClient = await auth.getClient();
@@ -361,7 +370,8 @@ function rowToCustomer(row, rowIndex) {
  * This fixes the bug where reads succeed (via auto-detect) but writes fail (hardcoded name).
  */
 function getSpreadsheetId() {
-  return (process.env.SPREADSHEET_ID || '').trim().replace(/^["']|["']$/g, '');
+  const envId = (process.env.SPREADSHEET_ID || '').trim().replace(/^["']|["']$/g, '');
+  return envId || '1ZTu28UuoqngxqHavlcF2lRiuBHslY_sNWqw-mYpiw0k';
 }
 
 /**
