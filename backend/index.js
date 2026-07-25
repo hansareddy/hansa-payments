@@ -124,20 +124,44 @@ app.get('/api/debug-sheet', async (req, res) => {
   try {
     const rawSpreadsheetId = process.env.SPREADSHEET_ID;
     const rawSheetName = process.env.SHEET_NAME;
-    const isConfigured = require('./sheets').getAllRows ? true : false;
+    let b64Len = process.env.GOOGLE_CREDENTIALS_BASE64 ? process.env.GOOGLE_CREDENTIALS_BASE64.length : 0;
+    let decodedSample = '';
+    let parsedKeySample = '';
+    if (process.env.GOOGLE_CREDENTIALS_BASE64) {
+      try {
+        const decoded = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64.trim(), 'base64').toString('utf8');
+        decodedSample = decoded.slice(0, 100);
+        const parsed = JSON.parse(decoded);
+        parsedKeySample = parsed.private_key ? parsed.private_key.slice(0, 60) : 'NO_KEY';
+      } catch(e) {
+        decodedSample = 'DECODE_ERR: ' + e.message;
+      }
+    }
     const rows = await require('./sheets').getAllRows();
     res.json({
       spreadsheetId: rawSpreadsheetId,
       sheetName: rawSheetName,
-      isConfigured,
+      b64Len,
+      decodedSample,
+      parsedKeySample,
       rowCount: rows ? rows.length : null,
       firstRow: rows && rows.length > 0 ? rows[0] : null,
       secondRow: rows && rows.length > 1 ? rows[1] : null,
     });
   } catch (err) {
+    let parsedKeySample = 'N/A';
+    try {
+      const decoded = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64.trim(), 'base64').toString('utf8');
+      const parsed = JSON.parse(decoded);
+      parsedKeySample = parsed.private_key ? JSON.stringify(parsed.private_key.slice(0, 80)) : 'NO_KEY';
+    } catch(e) {
+      parsedKeySample = 'ERR: ' + e.message;
+    }
+
     res.status(500).json({
       error: err.message,
       stack: err.stack,
+      parsedKeySample,
       spreadsheetId: process.env.SPREADSHEET_ID,
       sheetName: process.env.SHEET_NAME,
     });
