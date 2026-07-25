@@ -255,14 +255,25 @@ function rowToCustomer(row, rowIndex) {
 
     const cellVal = (row[colIdx] !== undefined) ? String(row[colIdx]).trim() : '';
     
-    // Determine if paid or unpaid
+    // Extract numbers to sum multiple payments in the same month (e.g. "150 (Cash 5/7), 150 (UPI 20/7)")
+    let totalPaidInMonth = 0;
+    if (cellVal !== '') {
+      const numberMatches = cellVal.match(/\b\d+(\.\d+)?\b/g);
+      if (numberMatches && numberMatches.length > 0) {
+        totalPaidInMonth = numberMatches.reduce((acc, numStr) => acc + parseFloat(numStr), 0);
+      }
+    }
+
     const isPaid = cellVal !== '' && 
                    !cellVal.toLowerCase().includes('unpaid') && 
-                   !cellVal.toLowerCase().includes('due');
+                   !cellVal.toLowerCase().includes('due') &&
+                   (totalPaidInMonth >= monthlyFee || cellVal.toLowerCase().includes('paid'));
+
+    const isPartial = !isPaid && totalPaidInMonth > 0;
 
     if (!isPaid) {
       unpaidMonthNames.push(m.name);
-      totalDueFromMonths += monthlyFee;
+      totalDueFromMonths += Math.max(0, monthlyFee - totalPaidInMonth);
     }
 
     monthlyPayments.push({
@@ -270,7 +281,8 @@ function rowToCustomer(row, rowIndex) {
       name: m.name,
       short: m.short,
       amount: monthlyFee,
-      status: isPaid ? 'Paid' : 'Unpaid',
+      paidAmount: totalPaidInMonth,
+      status: isPaid ? 'Paid' : (isPartial ? 'Partial' : 'Unpaid'),
       details: cellVal || (isPaid ? 'Paid' : 'Unpaid'),
     });
   });
@@ -533,17 +545,29 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
           targetMonthKey = monthShort;
         }
 
-        const monthColIdx = (COL.MONTH_COLS && COL.MONTH_COLS[targetMonthKey] !== undefined) ? COL.MONTH_COLS[targetMonthKey] : -1;
-        const cellText = `${paymentAmount} (${paymentMode} ${shortDate})`;
+        const targetMonthIndex = MONTH_LIST.findIndex(m => m.key === targetMonthKey);
+        const monthColIdx = (COL.MONTH_COLS && COL.MONTH_COLS[targetMonthKey] !== undefined && COL.MONTH_COLS[targetMonthKey] !== -1)
+          ? COL.MONTH_COLS[targetMonthKey]
+          : (targetMonthIndex !== -1 ? 8 + targetMonthIndex : -1);
 
         if (monthColIdx !== -1) {
           const colLetter = String.fromCharCode(65 + monthColIdx);
-          console.log(`📝 Writing month payment cell ${colLetter}${index}: "${cellText}"`);
+          
+          // Check existing month cell content from current object
+          const existingMonthObj = current.monthlyPayments ? current.monthlyPayments.find(m => m.key === targetMonthKey) : null;
+          const existingCellText = (existingMonthObj && existingMonthObj.details && existingMonthObj.details !== 'Unpaid' && existingMonthObj.details !== 'Paid')
+            ? existingMonthObj.details.trim()
+            : '';
+
+          const newEntry = `${paymentAmount} (${paymentMode} ${shortDate})`;
+          const updatedCellText = existingCellText ? `${existingCellText}, ${newEntry}` : newEntry;
+
+          console.log(`📝 Writing month payment cell ${colLetter}${index}: "${updatedCellText}"`);
           await client.spreadsheets.values.update({
             spreadsheetId,
             range: `'${sheetName}'!${colLetter}${index}`,
             valueInputOption: 'USER_ENTERED',
-            requestBody: { values: [[cellText]] },
+            requestBody: { values: [[updatedCellText]] },
           });
         } else {
           // Fallback to Column J ("Last Payment")
