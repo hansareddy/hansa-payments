@@ -58,7 +58,7 @@ function detectColumnsFromHeader(headerRow) {
     BALANCE: exact('balance') !== -1 ? exact('balance') : -1,
     DATE1: exact('date1') !== -1 ? exact('date1') : (exact('expiry date') !== -1 ? exact('expiry date') : 10),
     DATE2: exact('date2') !== -1 ? exact('date2') : 11,
-    FOR: exact('for') !== -1 ? exact('for') : (exact('status') !== -1 ? exact('status') : 12),
+    FOR: exact('for') !== -1 ? exact('for') : (exact('notes') !== -1 ? exact('notes') : (exact('complaint') !== -1 ? exact('complaint') : -1)),
     TRANSACTION_ID: exact('transaction_id') !== -1 ? exact('transaction_id') : -1,
   };
 }
@@ -217,7 +217,7 @@ function rowToCustomer(row, rowIndex) {
   
   const date1 = COL.DATE1 !== -1 ? (row[COL.DATE1] || '').trim() : expiryDate;
   const date2 = COL.DATE2 !== -1 ? (row[COL.DATE2] || '').trim() : '';
-  const forField = COL.FOR !== -1 ? (row[COL.FOR] || '').trim() : status;
+  const forField = COL.FOR !== -1 ? (row[COL.FOR] || '').trim() : '';
   const transactionId = COL.TRANSACTION_ID !== -1 ? (row[COL.TRANSACTION_ID] || '').trim() : serialNumber;
 
   let history = paymentTransactionLogs[username] ? [...paymentTransactionLogs[username]] : [];
@@ -414,16 +414,15 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-  // If Google API is configured, write back to Google Sheet
   if (isGoogleConfigured()) {
     try {
       const client = await getClient();
       const sheetName = await resolveSheetName();
-      const spreadsheetId = process.env.SPREADSHEET_ID;
+      const spreadsheetId = getSpreadsheetId();
 
       const current = await getCustomerByRow(rowIndex, targetUsername);
       if (!current) throw new Error(`Customer not found for row ${rowIndex} / ${targetUsername}`);
-      const index = current.rowIndex; // Use exact matched customer row index
+      const index = current.rowIndex;
 
       let newBank = current.bank;
       let newCash = current.cash;
@@ -438,32 +437,54 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
       const totalPaid = newBank + newCash;
       const newBalance = current.due - totalPaid + current.charges - newDiscount;
 
-      // Update F-N: DISCOUNT, CHARGES, BANK, CASH, BALANCE, DATE1, DATE2, FOR, TRANSACTION_ID
-      const updateRange = `'${sheetName}'!F${index}:N${index}`;
-      const values = [[
-        newDiscount || 0,
-        current.charges || 0,
-        newBank || 0,
-        newCash || 0,
-        newBalance,
-        todayStr,
-        current.date2,
-        current.forField || '',
-        transactionId || current.transactionId || ''
-      ]];
+      // If legacy billing columns exist (F: DISCOUNT, G: CHARGES, H: BANK, I: CASH, J: BALANCE)
+      if (COL.BANK !== -1 && COL.CASH !== -1 && COL.BALANCE !== -1) {
+        const updateRange = `'${sheetName}'!F${index}:N${index}`;
+        const values = [[
+          newDiscount || 0,
+          current.charges || 0,
+          newBank || 0,
+          newCash || 0,
+          newBalance,
+          todayStr,
+          current.date2,
+          current.forField || '',
+          transactionId || current.transactionId || ''
+        ]];
 
-      console.log(`📝 Writing payment to sheet "${sheetName}" row ${index}: mode=${paymentMode}, amount=${paymentAmount}, txnId=${transactionId}`);
+        await client.spreadsheets.values.update({
+          spreadsheetId,
+          range: updateRange,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values },
+        });
+      } else {
+        // New sheet format (SSC USERS APP): write payment entry to Column J ("Last Payment")
+        const paymentSummary = `Paid ₹${paymentAmount} via ${paymentMode} on ${todayStr}${transactionId ? ' (Txn: ' + transactionId + ')' : ''}`;
 
-      await client.spreadsheets.values.update({
-        spreadsheetId,
-        range: updateRange,
-        valueInputOption: 'USER_ENTERED',
-        requestBody: { values },
-      });
+        // Ensure header J1 is "Last Payment"
+        try {
+          await client.spreadsheets.values.update({
+            spreadsheetId,
+            range: `'${sheetName}'!J1`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: { values: [['Last Payment']] },
+          });
+        } catch (e) {
+          // ignore
+        }
 
-      console.log(`✅ Payment written to Google Sheet row ${index}`);
+        await client.spreadsheets.values.update({
+          spreadsheetId,
+          range: `'${sheetName}'!J${index}`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [[paymentSummary]] },
+        });
+      }
 
-      // Log transaction in history
+      console.log(`✅ Payment recorded on Google Sheet row ${index}`);
+
+      // Log in memory transaction history
       if (!paymentTransactionLogs[current.username]) {
         paymentTransactionLogs[current.username] = [];
       }
@@ -480,12 +501,11 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
       return await getCustomerByRow(index);
     } catch (err) {
       console.error('❌ Google Sheet update error:', err.message);
-      // Re-throw so the API returns an error instead of silently using local fallback
       throw err;
     }
   }
 
-  // Update local memory copy
+  // Local fallback
   const customer = localLedger.find(c => c.rowIndex === index);
   if (!customer) throw new Error(`Customer not found at row ${index}`);
 
@@ -508,12 +528,10 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
  * Add a new customer account to Google Sheet or memory ledger.
  */
 async function addCustomer(customerData) {
-  const { username, mobile, ipAddress, renew, due, date1 } = customerData;
+  const { username, mobile, ipAddress, renew, due, date1, location } = customerData;
   const planRate = parseFloat(renew) || 0;
   const initialDue = parseFloat(due) || 0;
   const renewDate = date1 || '';
-
-  // Calculate balance: balance = due
   const balance = initialDue;
 
   // Check for duplicate username
@@ -527,29 +545,23 @@ async function addCustomer(customerData) {
     try {
       const client = await getClient();
       const sheetName = await resolveSheetName();
-      const spreadsheetId = process.env.SPREADSHEET_ID;
+      const spreadsheetId = getSpreadsheetId();
 
-      // Values array mapping columns A to N
+      // Values array mapping columns A to H for SSC USERS APP
       const rowValues = [
         username || '',
         mobile || '',
-        ipAddress || '',
-        planRate,
-        initialDue,
-        0, // DISCOUNT
-        0, // CHARGES
-        0, // BANK
-        0, // CASH
-        balance, // BALANCE
-        renewDate, // DATE1
-        '', // DATE2
-        'New account created', // FOR ?
-        '' // TRANSACTION_ID
+        location || '',
+        ipAddress || '', // Customer #
+        '', // Serial Number
+        'Active', // Status
+        renew ? `${renew} Plan` : '', // Base Pack
+        renewDate || '' // Expiry Date
       ];
 
       await client.spreadsheets.values.append({
         spreadsheetId,
-        range: `'${sheetName}'!A:N`,
+        range: `'${sheetName}'!A:H`,
         valueInputOption: 'USER_ENTERED',
         requestBody: {
           values: [rowValues],
@@ -583,7 +595,7 @@ async function addCustomer(customerData) {
     balance: balance,
     date1: renewDate,
     date2: '',
-    forField: 'New account created',
+    forField: '',
   };
 
   localLedger.push(newCustomer);
@@ -592,28 +604,46 @@ async function addCustomer(customerData) {
 
 /**
  * Register a complaint or priority flag on a customer account.
- * Updates Column M (FOR ?).
+ * Updates Column I (Notes / Complaints).
  */
 async function updateComplaint(rowIndex, urgent, complaint) {
   const index = parseInt(rowIndex, 10);
   
   // Format the note field
-  let noteText = '';
-  if (urgent) {
-    noteText = `[URGENT] ${complaint.trim()}`;
-  } else {
-    noteText = complaint.trim();
-  }
+  let noteText = urgent ? `[URGENT] ${complaint.trim()}` : complaint.trim();
 
   if (isGoogleConfigured()) {
     try {
       const client = await getClient();
       const sheetName = await resolveSheetName();
-      const spreadsheetId = process.env.SPREADSHEET_ID;
+      const spreadsheetId = getSpreadsheetId();
 
-      // Update Column M (FOR ?) - index 13 corresponding to column M
-      const updateRange = `'${sheetName}'!M${index}`;
+      const current = await getCustomerByRow(index);
+      if (!current) throw new Error(`Customer not found for row ${index}`);
+      const targetIndex = current.rowIndex;
+
+      // Target Column I for Notes / Complaints (index 8, letter I)
+      const targetColIdx = COL.FOR !== -1 ? COL.FOR : 8;
+      const colLetter = String.fromCharCode(65 + targetColIdx);
+
+      // Ensure header I1 is "Notes / Complaints" if missing
+      if (COL.FOR === -1 && targetColIdx === 8) {
+        try {
+          await client.spreadsheets.values.update({
+            spreadsheetId,
+            range: `'${sheetName}'!I1`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: { values: [['Notes / Complaints']] },
+          });
+        } catch (e) {
+          // ignore header update error
+        }
+      }
+
+      const updateRange = `'${sheetName}'!${colLetter}${targetIndex}`;
       const values = [[noteText]];
+
+      console.log(`📝 Writing complaint to sheet "${sheetName}" cell ${colLetter}${targetIndex}: "${noteText}"`);
 
       await client.spreadsheets.values.update({
         spreadsheetId,
@@ -622,9 +652,12 @@ async function updateComplaint(rowIndex, urgent, complaint) {
         requestBody: { values },
       });
 
-      return await getCustomerByRow(index);
+      console.log(`✅ Complaint written to Google Sheet cell ${colLetter}${targetIndex}`);
+
+      return await getCustomerByRow(targetIndex);
     } catch (err) {
-      console.warn('Google Sheet update complaint error, updating local copy:', err.message);
+      console.error('❌ Google Sheet update complaint error:', err.message);
+      throw err;
     }
   }
 
