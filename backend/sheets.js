@@ -92,8 +92,11 @@ async function getClient() {
   // Priority 1: Base64-encoded credentials (most reliable for cloud deployment)
   if (process.env.GOOGLE_CREDENTIALS_BASE64) {
     try {
-      const decoded = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf8');
+      const decoded = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64.trim(), 'base64').toString('utf8');
       const credentials = JSON.parse(decoded);
+      if (credentials.private_key) {
+        credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+      }
       console.log('✅ Google credentials loaded from GOOGLE_CREDENTIALS_BASE64');
       auth = new google.auth.GoogleAuth({
         credentials,
