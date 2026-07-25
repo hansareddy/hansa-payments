@@ -51,9 +51,9 @@ export default function CustomerDetailScreen({ route, navigation }) {
       try {
         if (customer && (customer.username || customer.customerNo)) {
           const searchTerm = customer.username || customer.customerNo;
-          const res = await searchCustomers(searchTerm);
+          const res = await searchCustomers(searchTerm, true);
           if (isMounted && res && res.customers && res.customers.length > 0) {
-            const fresh = res.customers.find(c => c.rowIndex === customer.rowIndex || c.username === customer.username);
+            const fresh = res.customers.find(c => (c.rowIndex && c.rowIndex === customer.rowIndex) || c.username === customer.username);
             if (fresh) {
               setCurrentCustomer(fresh);
             }

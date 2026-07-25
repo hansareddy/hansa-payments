@@ -64,7 +64,7 @@ export default function CustomerListScreen({ navigation }) {
         }
         setPendingSync(getPendingCount());
 
-        const res = await getCustomers();
+        const res = await getCustomers('', true);
         const list = res.customers || [];
         setAllCustomers(list);
         applyFilters(list, query, activeFilter);

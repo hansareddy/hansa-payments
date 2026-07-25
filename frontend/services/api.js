@@ -150,11 +150,12 @@ export async function removeUser(userId) {
 
 // ── Customer Data ─────────────────────────────────────────────────────────────
 
-export async function getCustomers(query = '') {
+export async function getCustomers(query = '', refresh = false) {
   try {
-    const path = query.trim()
-      ? `/api/customers?q=${encodeURIComponent(query.trim())}`
-      : '/api/customers';
+    const params = [];
+    if (query && query.trim()) params.push(`q=${encodeURIComponent(query.trim())}`);
+    if (refresh) params.push('refresh=true');
+    const path = params.length > 0 ? `/api/customers?${params.join('&')}` : '/api/customers';
     return await apiGet(path);
   } catch (error) {
     if (isNetworkError(error)) {
@@ -164,8 +165,8 @@ export async function getCustomers(query = '') {
   }
 }
 
-export async function searchCustomers(query) {
-  return getCustomers(query);
+export async function searchCustomers(query, refresh = true) {
+  return getCustomers(query, refresh);
 }
 
 export async function getCustomer(rowIndex) {
