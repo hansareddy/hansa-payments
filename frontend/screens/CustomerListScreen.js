@@ -96,9 +96,13 @@ export default function CustomerListScreen({ navigation }) {
     if (search.trim()) {
       const term = search.toLowerCase().trim();
       result = result.filter(c =>
-        c.username.toLowerCase().includes(term) ||
-        c.mobile.toLowerCase().includes(term) ||
-        c.ipAddress.toLowerCase().includes(term)
+        (c.username && c.username.toLowerCase().includes(term)) ||
+        (c.mobile && c.mobile.toLowerCase().includes(term)) ||
+        (c.ipAddress && c.ipAddress.toLowerCase().includes(term)) ||
+        (c.customerNo && c.customerNo.toLowerCase().includes(term)) ||
+        (c.serialNumber && c.serialNumber.toLowerCase().includes(term)) ||
+        (c.status && c.status.toLowerCase().includes(term)) ||
+        (c.location && c.location.toLowerCase().includes(term))
       );
     }
 
@@ -212,6 +216,10 @@ export default function CustomerListScreen({ navigation }) {
     const balanceColor = getStatusColor(item.balance);
     const isUrgent = item.forField && item.forField.startsWith('[URGENT]');
     const displayNotes = isUrgent ? item.forField.replace('[URGENT]', '').trim() : item.forField;
+    
+    // Status text from sheet (Active / Inactive / New)
+    const activeState = (item.status || item.forField || 'Active').trim();
+    const stateColor = activeState.toLowerCase() === 'active' ? '#059669' : (activeState.toLowerCase() === 'inactive' ? '#DC2626' : '#2563EB');
 
     return (
       <TouchableOpacity
@@ -240,7 +248,10 @@ export default function CustomerListScreen({ navigation }) {
             )}
           </View>
           <Text style={styles.rowSub} numberOfLines={1}>
-            IP: {item.ipAddress || 'No IP'}  •  Ph: {item.mobile || 'No Phone'}
+            Cust #: {item.customerNo || item.ipAddress || '—'}  •  STB: {item.serialNumber || '—'}
+          </Text>
+          <Text style={styles.rowSub} numberOfLines={1}>
+            Ph: {item.mobile || '—'}  •  Expiry: {item.expiryDate || item.date1 || '—'}
           </Text>
           {item.forField && item.forField.trim() !== '' && item.forField !== 'New account created' && !item.forField.toLowerCase().startsWith('cash') && !item.forField.toLowerCase().startsWith('upi') && (
             <Text style={[styles.complaintSub, isUrgent && { color: '#DC2626' }]} numberOfLines={1}>
@@ -250,12 +261,14 @@ export default function CustomerListScreen({ navigation }) {
         </View>
 
         <View style={styles.rowRight}>
-          <Text style={[styles.rowBalance, { color: balanceColor }]}>
-            {formatCurrency(item.balance)}
-          </Text>
-          <Text style={[styles.rowStatus, { color: balanceColor }]}>
-            {isOverdue ? 'Balance Due' : 'Paid'}
-          </Text>
+          <View style={[styles.statePill, { backgroundColor: stateColor + '20', borderColor: stateColor }]}>
+            <Text style={[styles.statePillText, { color: stateColor }]}>{activeState}</Text>
+          </View>
+          {item.balance > 0 && (
+            <Text style={[styles.rowBalance, { color: balanceColor }]}>
+              {formatCurrency(item.balance)}
+            </Text>
+          )}
         </View>
 
         <Text style={styles.rowChevron}>➔</Text>
@@ -1156,5 +1169,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 8,
     textAlign: 'right',
+  },
+  statePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  statePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
 });

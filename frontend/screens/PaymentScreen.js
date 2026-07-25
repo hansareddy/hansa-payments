@@ -211,7 +211,9 @@ export default function PaymentScreen({ route, navigation }) {
         {/* Customer Ledger Preview header */}
         <View style={styles.headerInfo}>
           <Text style={styles.headerName}>{customer.username}</Text>
-          <Text style={styles.headerBalance}>Account Balance: {formatCurrency(customer.balance)}</Text>
+          <Text style={styles.headerBalance}>
+            Cust #: {customer.customerNo || customer.ipAddress || '—'}  •  STB: {customer.serialNumber || '—'}
+          </Text>
         </View>
 
         {/* Payment mode selection & Transaction ID */}

@@ -79,9 +79,13 @@ export default function SearchScreen({ navigation }) {
     if (search.trim()) {
       const term = search.toLowerCase().trim();
       result = result.filter(c =>
-        c.username.toLowerCase().includes(term) ||
-        c.mobile.toLowerCase().includes(term) ||
-        c.ipAddress.toLowerCase().includes(term)
+        (c.username && c.username.toLowerCase().includes(term)) ||
+        (c.mobile && c.mobile.toLowerCase().includes(term)) ||
+        (c.ipAddress && c.ipAddress.toLowerCase().includes(term)) ||
+        (c.customerNo && c.customerNo.toLowerCase().includes(term)) ||
+        (c.serialNumber && c.serialNumber.toLowerCase().includes(term)) ||
+        (c.status && c.status.toLowerCase().includes(term)) ||
+        (c.location && c.location.toLowerCase().includes(term))
       );
     }
 
@@ -104,14 +108,15 @@ export default function SearchScreen({ navigation }) {
   const overdueCount = allCustomers.filter(c => c.balance > 0).length;
   const totalBalanceDue = allCustomers.reduce((sum, c) => sum + (c.balance || 0), 0);
 
-  const getStatusInfo = (balance) => {
-    if (balance <= 0) return { color: '#059669', bg: '#D1FAE5', label: '✅ PAID' };
-    if (balance <= 600) return { color: '#D97706', bg: '#FEF3C7', label: '⚠️ PARTIAL' };
-    return { color: '#DC2626', bg: '#FEE2E2', label: '❌ OVERDUE' };
+  const getStatusInfo = (item) => {
+    const activeState = (item.status || item.forField || 'Active').trim();
+    if (activeState.toLowerCase() === 'active') return { color: '#059669', bg: '#D1FAE5', label: 'ACTIVE' };
+    if (activeState.toLowerCase() === 'inactive') return { color: '#DC2626', bg: '#FEE2E2', label: 'INACTIVE' };
+    return { color: '#2563EB', bg: '#DBEAFE', label: activeState.toUpperCase() };
   };
 
   const renderCustomerCard = ({ item }) => {
-    const status = getStatusInfo(item.balance);
+    const status = getStatusInfo(item);
 
     return (
       <TouchableOpacity
@@ -132,7 +137,8 @@ export default function SearchScreen({ navigation }) {
           <View style={styles.nameContainer}>
             <Text style={styles.customerName}>{item.username}</Text>
             <Text style={styles.customerPhone}>📱  {item.mobile || 'No Mobile'}</Text>
-            <Text style={styles.customerIP}>🌐  {item.ipAddress || 'No IP'}</Text>
+            <Text style={styles.customerIP}>🆔  Cust #: {item.customerNo || item.ipAddress || '—'}</Text>
+            <Text style={styles.customerIP}>📺  STB: {item.serialNumber || '—'}</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
             <Text style={[styles.statusLabel, { color: status.color }]}>{status.label}</Text>

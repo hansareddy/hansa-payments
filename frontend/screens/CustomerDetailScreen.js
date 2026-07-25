@@ -138,26 +138,71 @@ export default function CustomerDetailScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Network & Contact Parameters */}
+        {/* Subscriber & Hardware Information */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Account Information</Text>
+          <Text style={styles.sectionTitle}>Subscriber & Hardware Information</Text>
           
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Username / ID</Text>
+            <Text style={styles.infoLabel}>Subscriber Name</Text>
             <Text style={styles.infoValue}>{currentCustomer.username}</Text>
           </View>
           <View style={styles.divider} />
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Mobile Line</Text>
+            <Text style={styles.infoLabel}>Mobile Number</Text>
             <Text style={styles.infoValue}>{currentCustomer.mobile || '—'}</Text>
           </View>
           <View style={styles.divider} />
           
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Allocated IP</Text>
-            <Text style={styles.infoValue}>{currentCustomer.ipAddress || '—'}</Text>
+            <Text style={styles.infoLabel}>Customer ID (#)</Text>
+            <Text style={styles.infoValue}>{currentCustomer.customerNo || currentCustomer.ipAddress || '—'}</Text>
           </View>
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>STB / Serial Number</Text>
+            <Text style={styles.infoValue}>{currentCustomer.serialNumber || '—'}</Text>
+          </View>
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Subscription Status</Text>
+            <Text style={[styles.infoValue, { 
+              color: (currentCustomer.status || '').toLowerCase() === 'active' ? '#059669' : ((currentCustomer.status || '').toLowerCase() === 'inactive' ? '#DC2626' : '#2563EB'),
+              fontWeight: '700'
+            }]}>
+              {currentCustomer.status || 'Active'}
+            </Text>
+          </View>
+          <View style={styles.divider} />
+
+          {currentCustomer.basePack ? (
+            <>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Base Pack</Text>
+                <Text style={styles.infoValue}>{currentCustomer.basePack}</Text>
+              </View>
+              <View style={styles.divider} />
+            </>
+          ) : null}
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Expiry Date</Text>
+            <Text style={[styles.infoValue, { color: '#2563EB', fontWeight: '600' }]}>
+              {currentCustomer.expiryDate || currentCustomer.date1 || '—'}
+            </Text>
+          </View>
+
+          {currentCustomer.location ? (
+            <>
+              <View style={styles.divider} />
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Location</Text>
+                <Text style={styles.infoValue}>{currentCustomer.location}</Text>
+              </View>
+            </>
+          ) : null}
         </View>
 
         {/* Accounting Statement */}

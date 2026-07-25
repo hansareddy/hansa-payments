@@ -8,8 +8,8 @@ const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs');
 
-// Column index mapping (0-based)
-const COL = {
+// Column index mapping (0-based default fallback)
+let COL = {
   USERNAME: 0,
   MOBILE: 1,
   IP_ADDRESS: 2,
@@ -25,6 +25,43 @@ const COL = {
   FOR: 12,
   TRANSACTION_ID: 13,
 };
+
+/**
+ * Dynamically detect column indices from header row (Row 1)
+ */
+function detectColumnsFromHeader(headerRow) {
+  if (!headerRow || headerRow.length === 0) return COL;
+  const norm = headerRow.map(h => String(h || '').toLowerCase().trim());
+  const exact = (term) => norm.indexOf(term.toLowerCase());
+  const find = (keywords, defaultIdx) => {
+    const idx = norm.findIndex(h => keywords.some(k => h.includes(k)));
+    return idx !== -1 ? idx : defaultIdx;
+  };
+
+  return {
+    USERNAME: exact('name') !== -1 ? exact('name') : find(['username', 'subscriber'], 0),
+    MOBILE: exact('mobile') !== -1 ? exact('mobile') : find(['phone', 'contact'], 1),
+    LOCATION: exact('location') !== -1 ? exact('location') : -1,
+    CUSTOMER_NO: exact('customer #') !== -1 ? exact('customer #') : find(['customer', 'ipaddress'], 3),
+    SERIAL_NO: exact('serial number') !== -1 ? exact('serial number') : find(['stb', 'serial'], 4),
+    STATUS: exact('status') !== -1 ? exact('status') : -1,
+    BASE_PACK: exact('base pack') !== -1 ? exact('base pack') : -1,
+    EXPIRY_DATE: exact('expiry date') !== -1 ? exact('expiry date') : -1,
+    // Legacy / Billing fields (exact matches to prevent Serial Number from matching charges or due)
+    IP_ADDRESS: find(['ipaddress', 'ip_address', 'ip'], exact('location') !== -1 ? exact('location') : 2),
+    RENEW: exact('renew') !== -1 ? exact('renew') : (exact('base pack') !== -1 ? exact('base pack') : 3),
+    DUE: exact('due') !== -1 ? exact('due') : -1,
+    DISCOUNT: exact('discount') !== -1 ? exact('discount') : -1,
+    CHARGES: exact('charges') !== -1 ? exact('charges') : -1,
+    BANK: exact('bank') !== -1 ? exact('bank') : -1,
+    CASH: exact('cash') !== -1 ? exact('cash') : -1,
+    BALANCE: exact('balance') !== -1 ? exact('balance') : -1,
+    DATE1: exact('date1') !== -1 ? exact('date1') : (exact('expiry date') !== -1 ? exact('expiry date') : 10),
+    DATE2: exact('date2') !== -1 ? exact('date2') : 11,
+    FOR: exact('for') !== -1 ? exact('for') : (exact('status') !== -1 ? exact('status') : 12),
+    TRANSACTION_ID: exact('transaction_id') !== -1 ? exact('transaction_id') : -1,
+  };
+}
 
 // Cached resolved sheet tab name (detected once, reused for all reads+writes)
 let _resolvedSheetName = null;
@@ -110,12 +147,27 @@ function parseCurrency(val) {
 let paymentTransactionLogs = {};
 
 function rowToCustomer(row, rowIndex) {
-  const username = (row[COL.USERNAME] || '').trim();
-  const bank = parseCurrency(row[COL.BANK]);
-  const cash = parseCurrency(row[COL.CASH]);
-  const discount = parseCurrency(row[COL.DISCOUNT]);
-  const date1 = (row[COL.DATE1] || '').trim();
-  const transactionId = (row[COL.TRANSACTION_ID] || '').trim();
+  const username = COL.USERNAME !== -1 ? (row[COL.USERNAME] || '').trim() : '';
+  const mobile = COL.MOBILE !== -1 ? (row[COL.MOBILE] || '').trim() : '';
+  const location = COL.LOCATION !== -1 ? (row[COL.LOCATION] || '').trim() : '';
+  const customerNo = COL.CUSTOMER_NO !== -1 ? (row[COL.CUSTOMER_NO] || '').trim() : '';
+  const serialNumber = COL.SERIAL_NO !== -1 ? (row[COL.SERIAL_NO] || '').trim() : '';
+  const status = COL.STATUS !== -1 ? (row[COL.STATUS] || '').trim() : '';
+  const basePack = COL.BASE_PACK !== -1 ? (row[COL.BASE_PACK] || '').trim() : '';
+  const expiryDate = COL.EXPIRY_DATE !== -1 ? (row[COL.EXPIRY_DATE] || '').trim() : '';
+
+  const bank = COL.BANK !== -1 ? parseCurrency(row[COL.BANK]) : 0;
+  const cash = COL.CASH !== -1 ? parseCurrency(row[COL.CASH]) : 0;
+  const discount = COL.DISCOUNT !== -1 ? parseCurrency(row[COL.DISCOUNT]) : 0;
+  const charges = COL.CHARGES !== -1 ? parseCurrency(row[COL.CHARGES]) : 0;
+  const due = COL.DUE !== -1 ? parseCurrency(row[COL.DUE]) : 0;
+  const balance = COL.BALANCE !== -1 ? parseCurrency(row[COL.BALANCE]) : 0;
+  const renew = COL.RENEW !== -1 ? parseCurrency(row[COL.RENEW]) : 0;
+  
+  const date1 = COL.DATE1 !== -1 ? (row[COL.DATE1] || '').trim() : expiryDate;
+  const date2 = COL.DATE2 !== -1 ? (row[COL.DATE2] || '').trim() : '';
+  const forField = COL.FOR !== -1 ? (row[COL.FOR] || '').trim() : status;
+  const transactionId = COL.TRANSACTION_ID !== -1 ? (row[COL.TRANSACTION_ID] || '').trim() : serialNumber;
 
   let history = paymentTransactionLogs[username] ? [...paymentTransactionLogs[username]] : [];
   if (history.length === 0 && (bank > 0 || cash > 0 || transactionId)) {
@@ -146,18 +198,24 @@ function rowToCustomer(row, rowIndex) {
   return {
     rowIndex,
     username,
-    mobile: (row[COL.MOBILE] || '').trim(),
-    ipAddress: (row[COL.IP_ADDRESS] || '').trim(),
-    renew: parseCurrency(row[COL.RENEW]),
-    due: parseCurrency(row[COL.DUE]),
+    mobile,
+    ipAddress: customerNo || location || (COL.IP_ADDRESS !== -1 ? (row[COL.IP_ADDRESS] || '').trim() : ''),
+    customerNo,
+    serialNumber,
+    status,
+    location,
+    basePack,
+    expiryDate,
+    renew,
+    due,
     discount,
-    charges: parseCurrency(row[COL.CHARGES]),
+    charges,
     bank,
     cash,
-    balance: parseCurrency(row[COL.BALANCE]),
+    balance,
     date1,
-    date2: (row[COL.DATE2] || '').trim(),
-    forField: (row[COL.FOR] || '').trim(),
+    date2,
+    forField,
     transactionId,
     paymentHistory: history,
   };
@@ -218,7 +276,7 @@ async function getAllRows() {
   try {
     const response = await client.spreadsheets.values.get({
       spreadsheetId,
-      range: `'${sheetName}'!A:N`,
+      range: `'${sheetName}'!A:Z`,
     });
     return response.data.values || [];
   } catch (err) {
@@ -235,6 +293,8 @@ async function getAllCustomers() {
   try {
     const rows = await getAllRows();
     if (rows && rows.length > 1) {
+      // Dynamically detect column mapping from header row
+      COL = detectColumnsFromHeader(rows[0]);
       const customers = [];
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
