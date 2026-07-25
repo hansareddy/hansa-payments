@@ -9,7 +9,7 @@
  */
 
 import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
-import { setAuthToken, refreshSession, logoutUser } from './api';
+import { setAuthToken, refreshSession, logoutUser, setOnAuthExpired } from './api';
 import { saveAuthData, loadAuthData, clearAuthData } from './SecureStorage';
 
 const AuthContext = createContext(null);
