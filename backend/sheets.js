@@ -723,7 +723,7 @@ async function updateComplaint(rowIndex, urgent, complaint) {
 
       // Target Column I for Notes / Complaints (index 8, letter I)
       const targetColIdx = COL.FOR !== -1 ? COL.FOR : 8;
-      const colLetter = String.fromCharCode(65 + targetColIdx);
+      const colLetter = colIndexToLetter(targetColIdx);
 
       // Ensure header I1 is "Notes / Complaints" if missing
       if (COL.FOR === -1 && targetColIdx === 8) {
