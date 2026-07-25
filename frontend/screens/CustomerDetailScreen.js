@@ -132,9 +132,67 @@ export default function CustomerDetailScreen({ route, navigation }) {
   
   const hasComplaint = rawFor !== '' && !isReservedStatus;
   const hasUrgentComplaint = hasComplaint && rawFor.startsWith('[URGENT]');
-  const cleanComplaint = hasComplaint
-    ? (hasUrgentComplaint ? rawFor.replace('[URGENT]', '').trim() : rawFor)
-    : '';
+  const displayFeeRate = currentCustomer.monthlyFee || (currentCustomer.basePack && String(currentCustomer.basePack).includes('400') ? 400 : 300);
+  let displayPayments = (currentCustomer.monthlyPayments && currentCustomer.monthlyPayments.length > 0)
+    ? currentCustomer.monthlyPayments
+    : null;
+
+  if (!displayPayments || displayPayments.length === 0) {
+    displayPayments = DEFAULT_12_MONTHS.map((m, idx) => {
+      let status = 'Unpaid';
+      let details = 'Unpaid';
+      if (m.key === 'Apr-26' && currentCustomer.date2) {
+        status = 'Paid';
+        details = currentCustomer.date2;
+      } else if (idx < 6 && (currentCustomer.bank > 0 || currentCustomer.cash > 0)) {
+        status = 'Paid';
+        details = 'Paid';
+      }
+      return {
+        key: m.key,
+        name: m.name,
+        short: m.short,
+        amount: displayFeeRate,
+        status,
+        details,
+      };
+    });
+  }
+
+  const paidCount = displayPayments.filter(m => m.status === 'Paid').length;
+  const unpaidCount = displayPayments.filter(m => m.status !== 'Paid').length;
+
+  let calcCash = currentCustomer.cash || 0;
+  let calcBank = currentCustomer.bank || 0;
+
+  if (displayPayments && displayPayments.length > 0) {
+    let cCash = 0;
+    let cBank = 0;
+    displayPayments.forEach(m => {
+      if (m.details && m.details !== 'Unpaid') {
+        const parts = String(m.details).split(',');
+        parts.forEach(p => {
+          const pStr = p.trim();
+          if (pStr) {
+            const match = pStr.match(/^(\d+(\.\d+)?)/) || pStr.match(/(\d+(\.\d+)?)\s*(?=\()/);
+            const amt = match ? parseFloat(match[1]) : 0;
+            if (amt > 0) {
+              const pUpper = pStr.toUpperCase();
+              if (pUpper.includes('CASH')) {
+                cCash += amt;
+              } else {
+                cBank += amt;
+              }
+            }
+          }
+        });
+      }
+    });
+    if (cCash > 0 || cBank > 0) {
+      calcCash = cCash;
+      calcBank = cBank;
+    }
+  }
 
   return (
     <View style={styles.container}>
@@ -260,194 +318,121 @@ export default function CustomerDetailScreen({ route, navigation }) {
               </Text>
             </View>
           </View>
-
           {/* Quick Metrics Bar */}
-          {(() => {
-            const displayFeeRate = currentCustomer.monthlyFee || (currentCustomer.basePack && String(currentCustomer.basePack).includes('400') ? 400 : 300);
-            let displayPayments = (currentCustomer.monthlyPayments && currentCustomer.monthlyPayments.length > 0)
-              ? currentCustomer.monthlyPayments
-              : null;
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+            <View style={{ flex: 1, backgroundColor: '#F8FAFC', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '600', textTransform: 'uppercase' }}>Paid Months</Text>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#059669', marginTop: 2 }}>
+                {paidCount} / 12
+              </Text>
+            </View>
 
-            if (!displayPayments || displayPayments.length === 0) {
-              displayPayments = DEFAULT_12_MONTHS.map((m, idx) => {
-                let status = 'Unpaid';
-                let details = 'Unpaid';
-                if (m.key === 'Apr-26' && currentCustomer.date2) {
-                  status = 'Paid';
-                  details = currentCustomer.date2;
-                } else if (idx < 6 && (currentCustomer.bank > 0 || currentCustomer.cash > 0)) {
-                  status = 'Paid';
-                  details = 'Paid';
-                }
-                return {
-                  key: m.key,
-                  name: m.name,
-                  short: m.short,
-                  amount: displayFeeRate,
-                  status,
-                  details,
-                };
-              });
-            }
+            <View style={{ flex: 1, backgroundColor: '#F8FAFC', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '600', textTransform: 'uppercase' }}>Unpaid Months</Text>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: unpaidCount > 0 ? '#DC2626' : '#059669', marginTop: 2 }}>
+                {unpaidCount} Months
+              </Text>
+            </View>
 
-            const paidCount = displayPayments.filter(m => m.status === 'Paid').length;
-            const unpaidCount = displayPayments.filter(m => m.status !== 'Paid').length;
+            <View style={{ flex: 1, backgroundColor: '#F8FAFC', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '600', textTransform: 'uppercase' }}>Total Pending</Text>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: currentCustomer.balance > 0 ? '#DC2626' : '#059669', marginTop: 2 }}>
+                {formatCurrency(currentCustomer.balance)}
+              </Text>
+            </View>
+          </View>
 
-            return (
-              <>
-                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
-                  <View style={{ flex: 1, backgroundColor: '#F8FAFC', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '600', textTransform: 'uppercase' }}>Paid Months</Text>
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#059669', marginTop: 2 }}>
-                      {paidCount} / 12
-                    </Text>
+          <View style={styles.monthTable}>
+            <View style={styles.monthTableHeader}>
+              <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 1.6 }]}>Month</Text>
+              <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 1 }]}>Fee</Text>
+              <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 1.3 }]}>Status</Text>
+              <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 2.1 }]}>Payment Details</Text>
+            </View>
+
+            {displayPayments.map((m, i) => {
+              const isPaid = m.status === 'Paid';
+              return (
+                <View key={m.key || i} style={[styles.monthTableRow, i % 2 === 1 && { backgroundColor: '#F8FAFC' }]}>
+                  <Text style={[styles.monthTableCell, { flex: 1.6, fontWeight: '600', color: '#1E293B' }]}>{m.name}</Text>
+                  <Text style={[styles.monthTableCell, { flex: 1, color: '#475569', fontWeight: '500' }]}>₹{m.amount || displayFeeRate}</Text>
+                  <View style={{ flex: 1.3, alignItems: 'flex-start' }}>
+                    <View style={{
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      borderRadius: 12,
+                      backgroundColor: isPaid ? '#D1FAE5' : '#FEE2E2'
+                    }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: isPaid ? '#047857' : '#B91C1C' }}>
+                        {isPaid ? '✅ Paid' : '❌ Unpaid'}
+                      </Text>
+                    </View>
                   </View>
-
-                  <View style={{ flex: 1, backgroundColor: '#F8FAFC', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '600', textTransform: 'uppercase' }}>Unpaid Months</Text>
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: unpaidCount > 0 ? '#DC2626' : '#059669', marginTop: 2 }}>
-                      {unpaidCount} Months
+                  <View style={{ flex: 2.1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={[styles.monthTableCell, { fontSize: 11, color: isPaid ? '#059669' : '#94A3B8', flex: 1 }]} numberOfLines={1}>
+                      {m.details || (isPaid ? 'Paid' : 'Unpaid')}
                     </Text>
-                  </View>
-
-                  <View style={{ flex: 1, backgroundColor: '#F8FAFC', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '600', textTransform: 'uppercase' }}>Total Pending</Text>
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: currentCustomer.balance > 0 ? '#DC2626' : '#059669', marginTop: 2 }}>
-                      {formatCurrency(currentCustomer.balance)}
-                    </Text>
+                    {!isPaid && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          Vibration.vibrate(30);
+                          navigation.navigate('Payment', { customer: currentCustomer });
+                        }}
+                        style={{ backgroundColor: '#2563EB', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}
+                      >
+                        <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}>PAY</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
-
-                <View style={styles.monthTable}>
-                  <View style={styles.monthTableHeader}>
-                    <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 1.6 }]}>Month</Text>
-                    <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 1 }]}>Fee</Text>
-                    <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 1.3 }]}>Status</Text>
-                    <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 2.1 }]}>Payment Details</Text>
-                  </View>
-
-                  {displayPayments.map((m, i) => {
-                    const isPaid = m.status === 'Paid';
-                    return (
-                      <View key={m.key || i} style={[styles.monthTableRow, i % 2 === 1 && { backgroundColor: '#F8FAFC' }]}>
-                        <Text style={[styles.monthTableCell, { flex: 1.6, fontWeight: '600', color: '#1E293B' }]}>{m.name}</Text>
-                        <Text style={[styles.monthTableCell, { flex: 1, color: '#475569', fontWeight: '500' }]}>₹{m.amount || displayFeeRate}</Text>
-                        <View style={{ flex: 1.3, alignItems: 'flex-start' }}>
-                          <View style={{
-                            paddingHorizontal: 8,
-                            paddingVertical: 3,
-                            borderRadius: 12,
-                            backgroundColor: isPaid ? '#D1FAE5' : '#FEE2E2'
-                          }}>
-                            <Text style={{ fontSize: 11, fontWeight: '700', color: isPaid ? '#047857' : '#B91C1C' }}>
-                              {isPaid ? '✅ Paid' : '❌ Unpaid'}
-                            </Text>
-                          </View>
-                        </View>
-                        <View style={{ flex: 2.1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Text style={[styles.monthTableCell, { fontSize: 11, color: isPaid ? '#059669' : '#94A3B8', flex: 1 }]} numberOfLines={1}>
-                            {m.details || (isPaid ? 'Paid' : 'Unpaid')}
-                          </Text>
-                          {!isPaid && (
-                            <TouchableOpacity
-                              onPress={() => {
-                                Vibration.vibrate(30);
-                                navigation.navigate('Payment', { customer: currentCustomer });
-                              }}
-                              style={{ backgroundColor: '#2563EB', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}
-                            >
-                              <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}>PAY</Text>
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              </>
-            );
-          })()}
+              );
+            })}
+          </View>
         </View>
 
         {/* Audit Collections & Complaints */}
-        {(() => {
-          let calcCash = currentCustomer.cash || 0;
-          let calcBank = currentCustomer.bank || 0;
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Transaction & Ledger Notes</Text>
+          
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Cash Collections</Text>
+            <Text style={[styles.infoValue, { color: '#059669' }]}>
+              {formatCurrency(calcCash)}
+            </Text>
+          </View>
+          <View style={styles.divider} />
+          
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Bank / UPI Collections</Text>
+            <Text style={[styles.infoValue, { color: '#1E3A8A' }]}>
+              {formatCurrency(calcBank)}
+            </Text>
+          </View>
+          <View style={styles.divider} />
+          
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Discounts Applied</Text>
+            <Text style={[styles.infoValue, { color: '#B45309' }]}>
+              {formatCurrency(currentCustomer.discount)}
+            </Text>
+          </View>
+          <View style={styles.divider} />
+          
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Renew Expiry Date</Text>
+            <Text style={[styles.infoValue, { color: '#0F172A' }]}>
+              {currentCustomer.date1 || 'Not Specified'}
+            </Text>
+          </View>
+          <View style={styles.divider} />
 
-          if (displayPayments && displayPayments.length > 0) {
-            let cCash = 0;
-            let cBank = 0;
-            displayPayments.forEach(m => {
-              if (m.details && m.details !== 'Unpaid') {
-                const parts = String(m.details).split(',');
-                parts.forEach(p => {
-                  const pStr = p.trim();
-                  if (pStr) {
-                    const match = pStr.match(/^(\d+(\.\d+)?)/) || pStr.match(/(\d+(\.\d+)?)\s*(?=\()/);
-                    const amt = match ? parseFloat(match[1]) : 0;
-                    if (amt > 0) {
-                      const pUpper = pStr.toUpperCase();
-                      if (pUpper.includes('CASH')) {
-                        cCash += amt;
-                      } else {
-                        cBank += amt;
-                      }
-                    }
-                  }
-                });
-              }
-            });
-            if (cCash > 0 || cBank > 0) {
-              calcCash = cCash;
-              calcBank = cBank;
-            }
-          }
-
-          return (
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>Transaction & Ledger Notes</Text>
-              
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Cash Collections</Text>
-                <Text style={[styles.infoValue, { color: '#059669' }]}>
-                  {formatCurrency(calcCash)}
-                </Text>
-              </View>
-              <View style={styles.divider} />
-              
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Bank / UPI Collections</Text>
-                <Text style={[styles.infoValue, { color: '#1E3A8A' }]}>
-                  {formatCurrency(calcBank)}
-                </Text>
-              </View>
-              <View style={styles.divider} />
-              
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Discounts Applied</Text>
-                <Text style={[styles.infoValue, { color: '#B45309' }]}>
-                  {formatCurrency(currentCustomer.discount)}
-                </Text>
-              </View>
-              <View style={styles.divider} />
-              
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Renew Expiry Date</Text>
-                <Text style={[styles.infoValue, { color: '#0F172A' }]}>
-                  {currentCustomer.date1 || 'Not Specified'}
-                </Text>
-              </View>
-              <View style={styles.divider} />
-
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Account Notes / Complaint</Text>
-                <Text style={[styles.infoValue, { color: hasUrgentComplaint ? '#DC2626' : (hasComplaint ? '#2563EB' : '#94A3B8'), flex: 1, textAlign: 'right', marginLeft: 16 }]} numberOfLines={1}>
-                  {hasComplaint ? (hasUrgentComplaint ? `[URGENT] ${cleanComplaint}` : cleanComplaint) : 'No active notes / complaints'}
-                </Text>
-              </View>
-            </View>
-          );
-        })()}
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Account Notes / Complaint</Text>
+            <Text style={[styles.infoValue, { color: hasUrgentComplaint ? '#DC2626' : (hasComplaint ? '#2563EB' : '#94A3B8'), flex: 1, textAlign: 'right', marginLeft: 16 }]} numberOfLines={1}>
+              {hasComplaint ? (hasUrgentComplaint ? `[URGENT] ${cleanComplaint}` : cleanComplaint) : 'No active notes / complaints'}
+            </Text>
+          </View>
+        </View>
 
         {/* Action Button Grid */}
         <View style={styles.actionBtnGrid}>
