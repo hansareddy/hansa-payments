@@ -370,48 +370,84 @@ export default function CustomerDetailScreen({ route, navigation }) {
         </View>
 
         {/* Audit Collections & Complaints */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Transaction & Ledger Notes</Text>
-          
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Cash Collections</Text>
-            <Text style={[styles.infoValue, { color: '#059669' }]}>
-              {formatCurrency(currentCustomer.cash)}
-            </Text>
-          </View>
-          <View style={styles.divider} />
-          
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Bank / UPI Collections</Text>
-            <Text style={[styles.infoValue, { color: '#1E3A8A' }]}>
-              {formatCurrency(currentCustomer.bank)}
-            </Text>
-          </View>
-          <View style={styles.divider} />
-          
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Discounts Applied</Text>
-            <Text style={[styles.infoValue, { color: '#B45309' }]}>
-              {formatCurrency(currentCustomer.discount)}
-            </Text>
-          </View>
-          <View style={styles.divider} />
-          
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Renew Expiry Date</Text>
-            <Text style={[styles.infoValue, { color: '#0F172A' }]}>
-              {currentCustomer.date1 || 'Not Specified'}
-            </Text>
-          </View>
-          <View style={styles.divider} />
+        {(() => {
+          let calcCash = currentCustomer.cash || 0;
+          let calcBank = currentCustomer.bank || 0;
 
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Account Notes / Complaint</Text>
-            <Text style={[styles.infoValue, { color: hasUrgentComplaint ? '#DC2626' : (hasComplaint ? '#2563EB' : '#94A3B8'), flex: 1, textAlign: 'right', marginLeft: 16 }]} numberOfLines={1}>
-              {hasComplaint ? (hasUrgentComplaint ? `[URGENT] ${cleanComplaint}` : cleanComplaint) : 'No active notes / complaints'}
-            </Text>
-          </View>
-        </View>
+          if (displayPayments && displayPayments.length > 0) {
+            let cCash = 0;
+            let cBank = 0;
+            displayPayments.forEach(m => {
+              if (m.details && m.details !== 'Unpaid') {
+                const parts = String(m.details).split(',');
+                parts.forEach(p => {
+                  const pStr = p.trim();
+                  if (pStr) {
+                    const match = pStr.match(/^(\d+(\.\d+)?)/) || pStr.match(/(\d+(\.\d+)?)\s*(?=\()/);
+                    const amt = match ? parseFloat(match[1]) : 0;
+                    if (amt > 0) {
+                      const pUpper = pStr.toUpperCase();
+                      if (pUpper.includes('CASH')) {
+                        cCash += amt;
+                      } else {
+                        cBank += amt;
+                      }
+                    }
+                  }
+                });
+              }
+            });
+            if (cCash > 0 || cBank > 0) {
+              calcCash = cCash;
+              calcBank = cBank;
+            }
+          }
+
+          return (
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>Transaction & Ledger Notes</Text>
+              
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Cash Collections</Text>
+                <Text style={[styles.infoValue, { color: '#059669' }]}>
+                  {formatCurrency(calcCash)}
+                </Text>
+              </View>
+              <View style={styles.divider} />
+              
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Bank / UPI Collections</Text>
+                <Text style={[styles.infoValue, { color: '#1E3A8A' }]}>
+                  {formatCurrency(calcBank)}
+                </Text>
+              </View>
+              <View style={styles.divider} />
+              
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Discounts Applied</Text>
+                <Text style={[styles.infoValue, { color: '#B45309' }]}>
+                  {formatCurrency(currentCustomer.discount)}
+                </Text>
+              </View>
+              <View style={styles.divider} />
+              
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Renew Expiry Date</Text>
+                <Text style={[styles.infoValue, { color: '#0F172A' }]}>
+                  {currentCustomer.date1 || 'Not Specified'}
+                </Text>
+              </View>
+              <View style={styles.divider} />
+
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Account Notes / Complaint</Text>
+                <Text style={[styles.infoValue, { color: hasUrgentComplaint ? '#DC2626' : (hasComplaint ? '#2563EB' : '#94A3B8'), flex: 1, textAlign: 'right', marginLeft: 16 }]} numberOfLines={1}>
+                  {hasComplaint ? (hasUrgentComplaint ? `[URGENT] ${cleanComplaint}` : cleanComplaint) : 'No active notes / complaints'}
+                </Text>
+              </View>
+            </View>
+          );
+        })()}
 
         {/* Action Button Grid */}
         <View style={styles.actionBtnGrid}>
