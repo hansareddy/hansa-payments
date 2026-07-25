@@ -23,10 +23,15 @@ import { recordPayment } from '../services/api';
 import { enqueue, isNetworkError } from '../services/OfflineQueue';
 
 export default function PaymentScreen({ route, navigation }) {
-  const { customer } = route.params;
+  const customer = route.params?.customer || {};
 
+  // Find first unpaid month key or default to current month
+  const firstUnpaidMonth = customer?.monthlyPayments?.find(m => m.status !== 'Paid');
+  const initialMonthKey = firstUnpaidMonth ? firstUnpaidMonth.key : 'Jul-26';
+
+  const [selectedMonthKey, setSelectedMonthKey] = useState(initialMonthKey);
   const [paymentMode, setPaymentMode] = useState(null); // 'CASH' | 'GPAY' | 'PHONEPE' | 'PAYTM'
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(firstUnpaidMonth ? String(firstUnpaidMonth.amount || customer?.monthlyFee || 300) : (customer?.monthlyFee ? String(customer.monthlyFee) : '300'));
   const [discount, setDiscount] = useState('');
   const [transactionId, setTransactionId] = useState('');
   
