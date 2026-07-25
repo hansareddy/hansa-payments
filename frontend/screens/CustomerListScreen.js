@@ -97,10 +97,10 @@ export default function CustomerListScreen({ navigation }) {
   const applyFilters = (list, search, filter) => {
     let result = list;
 
-    if (filter === 'OVERDUE') {
-      result = result.filter(c => c.balance > 0);
-    } else if (filter === 'PAID') {
-      result = result.filter(c => c.balance <= 0);
+    if (filter === 'ACTIVE') {
+      result = result.filter(c => (c.status || c.forField || '').trim().toLowerCase() === 'active');
+    } else if (filter === 'INACTIVE') {
+      result = result.filter(c => (c.status || c.forField || '').trim().toLowerCase() === 'inactive');
     }
 
     if (search.trim()) {
@@ -130,8 +130,8 @@ export default function CustomerListScreen({ navigation }) {
   };
 
   const totalCount = allCustomers.length;
-  const overdueCount = allCustomers.filter(c => c.balance > 0).length;
-  const totalBalanceDue = allCustomers.reduce((sum, c) => sum + (c.balance || 0), 0);
+  const activeCount = allCustomers.filter(c => (c.status || c.forField || '').trim().toLowerCase() === 'active').length;
+  const inactiveCount = allCustomers.filter(c => (c.status || c.forField || '').trim().toLowerCase() === 'inactive').length;
 
   // Extract complaints
   const activeComplaints = allCustomers.filter(c => {
@@ -278,11 +278,6 @@ export default function CustomerListScreen({ navigation }) {
           <View style={[styles.statePill, { backgroundColor: stateColor + '20', borderColor: stateColor }]}>
             <Text style={[styles.statePillText, { color: stateColor }]}>{activeState}</Text>
           </View>
-          {item.balance > 0 && (
-            <Text style={[styles.rowBalance, { color: balanceColor }]}>
-              {formatCurrency(item.balance)}
-            </Text>
-          )}
         </View>
 
         <Text style={styles.rowChevron}>➔</Text>
@@ -359,20 +354,20 @@ export default function CustomerListScreen({ navigation }) {
           
           <TouchableOpacity 
             style={styles.statItem} 
-            onPress={() => { Vibration.vibrate(15); setActiveFilter('OVERDUE'); }}
+            onPress={() => { Vibration.vibrate(15); setActiveFilter('ACTIVE'); }}
           >
-            <Text style={[styles.statVal, { color: '#FCA5A5' }]}>{overdueCount}</Text>
-            <Text style={styles.statLabel}>OVERDUE</Text>
+            <Text style={[styles.statVal, { color: '#A7F3D0' }]}>{activeCount}</Text>
+            <Text style={styles.statLabel}>ACTIVE</Text>
           </TouchableOpacity>
           
           <View style={styles.statDivider} />
           
           <TouchableOpacity 
             style={styles.statItem} 
-            onPress={() => { Vibration.vibrate(15); setActiveFilter('OVERDUE'); }}
+            onPress={() => { Vibration.vibrate(15); setActiveFilter('INACTIVE'); }}
           >
-            <Text style={[styles.statVal, { color: '#A7F3D0' }]}>{formatCurrency(totalBalanceDue)}</Text>
-            <Text style={styles.statLabel}>TOTAL DUE</Text>
+            <Text style={[styles.statVal, { color: '#FCA5A5' }]}>{inactiveCount}</Text>
+            <Text style={styles.statLabel}>INACTIVE</Text>
           </TouchableOpacity>
         </View>
 
@@ -415,7 +410,7 @@ export default function CustomerListScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* filter tabs (3 clean equal tabs) */}
+        {/* filter tabs (3 clean equal tabs: All, Active, Inactive) */}
         <View style={styles.tabsRow}>
           <TouchableOpacity
             style={[styles.tab, activeFilter === 'ALL' && styles.tabActive]}
@@ -427,20 +422,20 @@ export default function CustomerListScreen({ navigation }) {
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={[styles.tab, activeFilter === 'OVERDUE' && styles.tabActiveRed]}
-            onPress={() => setActiveFilter('OVERDUE')}
+            style={[styles.tab, activeFilter === 'ACTIVE' && styles.tabActiveGreen]}
+            onPress={() => setActiveFilter('ACTIVE')}
           >
-            <Text style={[styles.tabText, activeFilter === 'OVERDUE' && styles.tabTextRedActive]}>
-              🔴 Overdue ({overdueCount})
+            <Text style={[styles.tabText, activeFilter === 'ACTIVE' && styles.tabTextGreenActive]}>
+              🟢 Active ({activeCount})
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tab, activeFilter === 'PAID' && styles.tabActiveGreen]}
-            onPress={() => setActiveFilter('PAID')}
+            style={[styles.tab, activeFilter === 'INACTIVE' && styles.tabActiveRed]}
+            onPress={() => setActiveFilter('INACTIVE')}
           >
-            <Text style={[styles.tabText, activeFilter === 'PAID' && styles.tabTextGreenActive]}>
-              🟢 Settled ({allCustomers.length - overdueCount})
+            <Text style={[styles.tabText, activeFilter === 'INACTIVE' && styles.tabTextRedActive]}>
+              🔴 Inactive ({inactiveCount})
             </Text>
           </TouchableOpacity>
         </View>
