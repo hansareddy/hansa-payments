@@ -109,6 +109,7 @@ export default function PaymentScreen({ route, navigation }) {
                   discount: discountVal,
                   transactionId: transactionId.trim(),
                   notes: notes,
+                  monthKey: selectedMonthKey,
                 };
 
                 const result = await recordPayment(payload);
@@ -209,12 +210,48 @@ export default function PaymentScreen({ route, navigation }) {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         
         {/* Customer Ledger Preview header */}
-        <View style={styles.headerInfo}>
-          <Text style={styles.headerName}>{customer.username}</Text>
-          <Text style={styles.headerBalance}>
-            Cust #: {customer.customerNo || customer.ipAddress || '—'}  •  STB: {customer.serialNumber || '—'}
-          </Text>
-        </View>
+        {/* Billing Month Selector */}
+        {customer.monthlyPayments && customer.monthlyPayments.length > 0 ? (
+          <View style={styles.stepCard}>
+            <Text style={styles.stepTitle}>Select Month Being Paid</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+              {customer.monthlyPayments.map((m) => {
+                const isSelected = selectedMonthKey === m.key;
+                const isPaid = m.status === 'Paid';
+                return (
+                  <TouchableOpacity
+                    key={m.key}
+                    onPress={() => {
+                      Vibration.vibrate(20);
+                      setSelectedMonthKey(m.key);
+                      if (!isPaid) {
+                        setAmount(String(m.amount || customer.monthlyFee || 300));
+                      }
+                    }}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      borderRadius: 8,
+                      borderWidth: 1.5,
+                      borderColor: isSelected ? '#2563EB' : (isPaid ? '#059669' : '#CBD5E1'),
+                      backgroundColor: isSelected ? '#EFF6FF' : (isPaid ? '#F0FDF4' : '#FFFFFF'),
+                      marginRight: 8,
+                      alignItems: 'center',
+                      minWidth: 85,
+                    }}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: isSelected ? '#1E40AF' : (isPaid ? '#047857' : '#334155') }}>
+                      {m.short}
+                    </Text>
+                    <Text style={{ fontSize: 10, color: isPaid ? '#059669' : '#DC2626', marginTop: 2, fontWeight: '600' }}>
+                      {isPaid ? '✓ Paid' : `₹${m.amount}`}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        ) : null}
 
         {/* Payment mode selection & Transaction ID */}
         <View style={styles.stepCard}>

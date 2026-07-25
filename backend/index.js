@@ -361,7 +361,7 @@ app.post('/api/payments', async (req, res) => {
       return res.status(400).json({ error: 'Invalid payment amount' });
     }
 
-    const discount = parseFloat(req.body.discount) || 0;
+    const monthKey = req.body.monthKey || req.body.selectedMonthKey || '';
 
     const updatedCustomer = await updatePayment(
       parseInt(rowIndex, 10),
@@ -370,7 +370,8 @@ app.post('/api/payments', async (req, res) => {
       discount,
       transactionId || '',
       req.body.notes || '',
-      username || ''
+      username || '',
+      monthKey
     );
 
     invalidateCache(); // bust cache after write

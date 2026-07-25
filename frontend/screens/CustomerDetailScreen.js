@@ -205,32 +205,54 @@ export default function CustomerDetailScreen({ route, navigation }) {
           ) : null}
         </View>
 
-        {/* Accounting Statement */}
+        {/* 2026 Monthly Billing & Payment Status Table */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Balance Statement</Text>
-          
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Outstanding Balance</Text>
-            <Text style={[styles.infoValue, { color: status.color, fontWeight: '600', fontSize: 18 }]}>
-              {formatCurrency(currentCustomer.balance)}
-            </Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={styles.sectionTitle}>2026 Monthly Payment Status</Text>
+            <View style={{ backgroundColor: '#EEF2FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#4F46E5' }}>
+                ₹{currentCustomer.monthlyFee || 300}/mo
+              </Text>
+            </View>
           </View>
-          <View style={styles.divider} />
 
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Initial Due Dues</Text>
-            <Text style={[styles.infoValue, { color: '#64748B' }]}>
-              {formatCurrency(currentCustomer.due)}
-            </Text>
-          </View>
-          <View style={styles.divider} />
+          {currentCustomer.monthlyPayments && currentCustomer.monthlyPayments.length > 0 ? (
+            <View style={styles.monthTable}>
+              <View style={styles.monthTableHeader}>
+                <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 1.5 }]}>Month</Text>
+                <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 1 }]}>Fee</Text>
+                <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 1.3 }]}>Status</Text>
+                <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 2 }]}>Paid Details</Text>
+              </View>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Base Plan Rate (Monthly)</Text>
-            <Text style={[styles.infoValue, { color: '#0F172A' }]}>
-              {formatCurrency(currentCustomer.renew)}
-            </Text>
-          </View>
+              {currentCustomer.monthlyPayments.map((m, i) => {
+                const isPaid = m.status === 'Paid';
+                return (
+                  <View key={m.key || i} style={[styles.monthTableRow, i % 2 === 1 && { backgroundColor: '#F8FAFC' }]}>
+                    <Text style={[styles.monthTableCell, { flex: 1.5, fontWeight: '600', color: '#1E293B' }]}>{m.name}</Text>
+                    <Text style={[styles.monthTableCell, { flex: 1, color: '#475569' }]}>₹{m.amount || currentCustomer.monthlyFee || 300}</Text>
+                    <View style={{ flex: 1.3, alignItems: 'flex-start' }}>
+                      <View style={{
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                        borderRadius: 10,
+                        backgroundColor: isPaid ? '#D1FAE5' : '#FEE2E2'
+                      }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: isPaid ? '#047857' : '#B91C1C' }}>
+                          {isPaid ? '✅ Paid' : '❌ Unpaid'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.monthTableCell, { flex: 2, fontSize: 11, color: isPaid ? '#059669' : '#94A3B8' }]} numberOfLines={1}>
+                      {m.details || '—'}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={{ color: '#64748B', fontStyle: 'italic', marginVertical: 8 }}>No monthly records found.</Text>
+          )}
         </View>
 
         {/* Audit Collections & Complaints */}
@@ -716,5 +738,37 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748B',
     fontStyle: 'italic',
+  },
+  monthTable: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: 4,
+  },
+  monthTableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#CBD5E1',
+  },
+  monthTableRow: {
+    flexDirection: 'row',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  monthTableCell: {
+    fontSize: 12,
+  },
+  monthHeaderCell: {
+    fontWeight: '700',
+    color: '#475569',
+    fontSize: 11,
+    textTransform: 'uppercase',
   },
 });

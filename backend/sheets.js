@@ -29,14 +29,45 @@ let COL = {
 /**
  * Dynamically detect column indices from header row (Row 1)
  */
+const MONTH_LIST = [
+  { key: 'Jan-26', name: 'January 2026', short: 'Jan' },
+  { key: 'Feb-26', name: 'February 2026', short: 'Feb' },
+  { key: 'Mar-26', name: 'March 2026', short: 'Mar' },
+  { key: 'Apr-26', name: 'April 2026', short: 'Apr' },
+  { key: 'May-26', name: 'May 2026', short: 'May' },
+  { key: 'Jun-26', name: 'June 2026', short: 'Jun' },
+  { key: 'Jul-26', name: 'July 2026', short: 'Jul' },
+  { key: 'Aug-26', name: 'August 2026', short: 'Aug' },
+  { key: 'Sep-26', name: 'September 2026', short: 'Sep' },
+  { key: 'Oct-26', name: 'October 2026', short: 'Oct' },
+  { key: 'Nov-26', name: 'November 2026', short: 'Nov' },
+  { key: 'Dec-26', name: 'December 2026', short: 'Dec' },
+];
+
+function getMonthlyRate(basePack) {
+  if (!basePack) return 300;
+  const str = String(basePack).trim();
+  if (str.includes('400')) return 400;
+  if (str.includes('300')) return 300;
+  const num = parseFloat(str);
+  if (!isNaN(num) && num > 0) return num;
+  return 300;
+}
+
 function detectColumnsFromHeader(headerRow) {
-  if (!headerRow || headerRow.length === 0) return COL;
-  const norm = headerRow.map(h => String(h || '').toLowerCase().trim());
+  if (!headerRow || !Array.isArray(headerRow)) return COL;
+  const norm = headerRow.map(h => String(h || '').trim().toLowerCase());
   const exact = (term) => norm.indexOf(term.toLowerCase());
   const find = (keywords, defaultIdx) => {
     const idx = norm.findIndex(h => keywords.some(k => h.includes(k)));
     return idx !== -1 ? idx : defaultIdx;
   };
+
+  const monthCols = {};
+  MONTH_LIST.forEach(m => {
+    const idx = exact(m.key.toLowerCase());
+    monthCols[m.key] = idx !== -1 ? idx : exact(m.short.toLowerCase());
+  });
 
   return {
     USERNAME: exact('name') !== -1 ? exact('name') : find(['username', 'subscriber'], 0),
@@ -47,10 +78,10 @@ function detectColumnsFromHeader(headerRow) {
     STATUS: exact('status') !== -1 ? exact('status') : -1,
     BASE_PACK: exact('base pack') !== -1 ? exact('base pack') : -1,
     EXPIRY_DATE: exact('expiry date') !== -1 ? exact('expiry date') : -1,
-    // Legacy / Billing fields (exact matches to prevent Serial Number from matching charges or due)
+    // Legacy / Billing fields
     IP_ADDRESS: find(['ipaddress', 'ip_address', 'ip'], exact('location') !== -1 ? exact('location') : 2),
     RENEW: exact('renew') !== -1 ? exact('renew') : (exact('base pack') !== -1 ? exact('base pack') : 3),
-    DUE: exact('due') !== -1 ? exact('due') : -1,
+    DUE: exact('total due') !== -1 ? exact('total due') : (exact('due') !== -1 ? exact('due') : -1),
     DISCOUNT: exact('discount') !== -1 ? exact('discount') : -1,
     CHARGES: exact('charges') !== -1 ? exact('charges') : -1,
     BANK: exact('bank') !== -1 ? exact('bank') : -1,
@@ -60,6 +91,7 @@ function detectColumnsFromHeader(headerRow) {
     DATE2: exact('date2') !== -1 ? exact('date2') : 11,
     FOR: exact('for') !== -1 ? exact('for') : (exact('notes') !== -1 ? exact('notes') : (exact('complaint') !== -1 ? exact('complaint') : -1)),
     TRANSACTION_ID: exact('transaction_id') !== -1 ? exact('transaction_id') : -1,
+    MONTH_COLS: monthCols,
   };
 }
 
@@ -211,14 +243,36 @@ function rowToCustomer(row, rowIndex) {
   const cash = COL.CASH !== -1 ? parseCurrency(row[COL.CASH]) : 0;
   const discount = COL.DISCOUNT !== -1 ? parseCurrency(row[COL.DISCOUNT]) : 0;
   const charges = COL.CHARGES !== -1 ? parseCurrency(row[COL.CHARGES]) : 0;
-  const due = COL.DUE !== -1 ? parseCurrency(row[COL.DUE]) : 0;
-  const balance = COL.BALANCE !== -1 ? parseCurrency(row[COL.BALANCE]) : 0;
-  const renew = COL.RENEW !== -1 ? parseCurrency(row[COL.RENEW]) : 0;
-  
-  const date1 = COL.DATE1 !== -1 ? (row[COL.DATE1] || '').trim() : expiryDate;
-  const date2 = COL.DATE2 !== -1 ? (row[COL.DATE2] || '').trim() : '';
-  const forField = COL.FOR !== -1 ? (row[COL.FOR] || '').trim() : '';
-  const transactionId = COL.TRANSACTION_ID !== -1 ? (row[COL.TRANSACTION_ID] || '').trim() : serialNumber;
+  const monthlyFee = getMonthlyRate(basePack);
+  const monthlyPayments = [];
+  const unpaidMonthNames = [];
+  let totalDueFromMonths = 0;
+
+  MONTH_LIST.forEach(m => {
+    const colIdx = (COL.MONTH_COLS && COL.MONTH_COLS[m.key] !== undefined) ? COL.MONTH_COLS[m.key] : -1;
+    const cellVal = (colIdx !== -1 && row[colIdx]) ? String(row[colIdx]).trim() : '';
+    
+    // Determine if paid or unpaid
+    const isPaid = cellVal !== '' && 
+                   !cellVal.toLowerCase().includes('unpaid') && 
+                   !cellVal.toLowerCase().includes('due');
+
+    if (!isPaid) {
+      unpaidMonthNames.push(m.name);
+      totalDueFromMonths += monthlyFee;
+    }
+
+    monthlyPayments.push({
+      key: m.key,
+      name: m.name,
+      short: m.short,
+      amount: monthlyFee,
+      status: isPaid ? 'Paid' : 'Unpaid',
+      details: cellVal || (isPaid ? 'Paid' : 'Unpaid'),
+    });
+  });
+
+  const due = COL.DUE !== -1 && parseCurrency(row[COL.DUE]) > 0 ? parseCurrency(row[COL.DUE]) : totalDueFromMonths;
 
   let history = paymentTransactionLogs[username] ? [...paymentTransactionLogs[username]] : [];
   if (history.length === 0 && (bank > 0 || cash > 0 || transactionId)) {
@@ -256,14 +310,17 @@ function rowToCustomer(row, rowIndex) {
     status,
     location,
     basePack,
+    monthlyFee,
+    monthlyPayments,
+    unpaidMonths: unpaidMonthNames,
     expiryDate,
-    renew,
+    renew: monthlyFee,
     due,
     discount,
     charges,
     bank,
     cash,
-    balance,
+    balance: due,
     date1,
     date2,
     forField,
@@ -407,12 +464,13 @@ async function getCustomerByRow(rowIndex, username = null) {
  * Date is always set to today's date (column K).
  * Transaction ID is written to column N.
  */
-async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmount = 0, transactionId = '', notes = '', targetUsername = '') {
+async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmount = 0, transactionId = '', notes = '', targetUsername = '', selectedMonthKey = '') {
   const discountVal = parseFloat(discountAmount) || 0;
 
   // Always use today's date
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const shortDate = `${today.getDate()}/${today.getMonth() + 1}`;
 
   if (isGoogleConfigured()) {
     try {
@@ -435,9 +493,9 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
       }
 
       const totalPaid = newBank + newCash;
-      const newBalance = current.due - totalPaid + current.charges - newDiscount;
+      const newBalance = Math.max(0, current.due - paymentAmount);
 
-      // If legacy billing columns exist (F: DISCOUNT, G: CHARGES, H: BANK, I: CASH, J: BALANCE)
+      // 1. If legacy billing columns exist
       if (COL.BANK !== -1 && COL.CASH !== -1 && COL.BALANCE !== -1) {
         const updateRange = `'${sheetName}'!F${index}:N${index}`;
         const values = [[
@@ -459,27 +517,61 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
           requestBody: { values },
         });
       } else {
-        // New sheet format (SSC USERS APP): write payment entry to Column J ("Last Payment")
-        const paymentSummary = `Paid ₹${paymentAmount} via ${paymentMode} on ${todayStr}${transactionId ? ' (Txn: ' + transactionId + ')' : ''}`;
-
-        // Ensure header J1 is "Last Payment"
-        try {
-          await client.spreadsheets.values.update({
-            spreadsheetId,
-            range: `'${sheetName}'!J1`,
-            valueInputOption: 'USER_ENTERED',
-            requestBody: { values: [['Last Payment']] },
-          });
-        } catch (e) {
-          // ignore
+        // 2. Month Grid layout update:
+        // Find target month key to update
+        let targetMonthKey = selectedMonthKey;
+        if (!targetMonthKey && current.monthlyPayments) {
+          const unpaidObj = current.monthlyPayments.find(m => m.status === 'Unpaid');
+          if (unpaidObj) targetMonthKey = unpaidObj.key;
+        }
+        if (!targetMonthKey) {
+          // Default to current month key e.g. Jul-26
+          const monthShort = MONTH_LIST[today.getMonth()].key;
+          targetMonthKey = monthShort;
         }
 
-        await client.spreadsheets.values.update({
-          spreadsheetId,
-          range: `'${sheetName}'!J${index}`,
-          valueInputOption: 'USER_ENTERED',
-          requestBody: { values: [[paymentSummary]] },
-        });
+        const monthColIdx = (COL.MONTH_COLS && COL.MONTH_COLS[targetMonthKey] !== undefined) ? COL.MONTH_COLS[targetMonthKey] : -1;
+        const cellText = `${paymentAmount} (${paymentMode} ${shortDate})`;
+
+        if (monthColIdx !== -1) {
+          const colLetter = String.fromCharCode(65 + monthColIdx);
+          console.log(`📝 Writing month payment cell ${colLetter}${index}: "${cellText}"`);
+          await client.spreadsheets.values.update({
+            spreadsheetId,
+            range: `'${sheetName}'!${colLetter}${index}`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: { values: [[cellText]] },
+          });
+        } else {
+          // Fallback to Column J ("Last Payment")
+          const paymentSummary = `Paid ₹${paymentAmount} via ${paymentMode} on ${todayStr}${transactionId ? ' (Txn: ' + transactionId + ')' : ''}`;
+          try {
+            await client.spreadsheets.values.update({
+              spreadsheetId,
+              range: `'${sheetName}'!J1`,
+              valueInputOption: 'USER_ENTERED',
+              requestBody: { values: [['Last Payment']] },
+            });
+          } catch (e) {}
+
+          await client.spreadsheets.values.update({
+            spreadsheetId,
+            range: `'${sheetName}'!J${index}`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: { values: [[paymentSummary]] },
+          });
+        }
+
+        // Update Total Due column if present
+        if (COL.DUE !== -1) {
+          const dueColLetter = String.fromCharCode(65 + COL.DUE);
+          await client.spreadsheets.values.update({
+            spreadsheetId,
+            range: `'${sheetName}'!${dueColLetter}${index}`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: { values: [[newBalance]] },
+          });
+        }
       }
 
       console.log(`✅ Payment recorded on Google Sheet row ${index}`);
