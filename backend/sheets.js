@@ -304,7 +304,8 @@ async function getAllCustomers() {
       return customers;
     }
   } catch (err) {
-    console.warn('Google Sheets fetch warning, fallback to local ledger:', err.message);
+    console.error('❌ Google Sheets fetch error in getAllCustomers:', err);
+    throw err;
   }
 
   return localLedger;
@@ -319,9 +320,13 @@ async function searchCustomers(query) {
 
   const searchTerm = query.toLowerCase().trim();
   return all.filter(item => 
-    item.username.toLowerCase().includes(searchTerm) ||
-    item.mobile.toLowerCase().includes(searchTerm) ||
-    item.ipAddress.toLowerCase().includes(searchTerm)
+    (item.username && item.username.toLowerCase().includes(searchTerm)) ||
+    (item.mobile && item.mobile.toLowerCase().includes(searchTerm)) ||
+    (item.ipAddress && item.ipAddress.toLowerCase().includes(searchTerm)) ||
+    (item.customerNo && item.customerNo.toLowerCase().includes(searchTerm)) ||
+    (item.serialNumber && item.serialNumber.toLowerCase().includes(searchTerm)) ||
+    (item.status && item.status.toLowerCase().includes(searchTerm)) ||
+    (item.location && item.location.toLowerCase().includes(searchTerm))
   );
 }
 
