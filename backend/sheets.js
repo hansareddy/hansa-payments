@@ -310,31 +310,52 @@ function rowToCustomer(row, rowIndex) {
 
   const due = COL.DUE !== -1 && parseCurrency(row[COL.DUE]) > 0 ? parseCurrency(row[COL.DUE]) : totalDueFromMonths;
 
-  let history = paymentTransactionLogs[username] ? [...paymentTransactionLogs[username]] : [];
-  if (history.length === 0 && (bank > 0 || cash > 0 || transactionId)) {
-    if (bank > 0) {
-      history.push({
-        id: `tx_init_bank_${rowIndex}`,
-        date: date1 || 'Recent',
-        mode: 'BANK',
-        amount: bank,
-        discount: discount,
-        transactionId: transactionId || 'SHEET_REC',
-        notes: 'Bank / UPI Collection'
+  // Build full payment history dynamically from monthly billing entries
+  const parsedHistory = [];
+  monthlyPayments.forEach(m => {
+    if (m.details && m.details !== 'Unpaid') {
+      const parts = String(m.details).split(',');
+      parts.forEach((p, pIdx) => {
+        const pStr = p.trim();
+        if (pStr) {
+          const match = pStr.match(/^(\d+(\.\d+)?)/) || pStr.match(/(\d+(\.\d+)?)\s*(?=\()/);
+          const amt = match ? parseFloat(match[1]) : 0;
+          
+          let mode = 'BANK';
+          const pUpper = pStr.toUpperCase();
+          if (pUpper.includes('CASH')) mode = 'CASH';
+          else if (pUpper.includes('GPAY')) mode = 'GPAY';
+          else if (pUpper.includes('PHONEPE')) mode = 'PHONEPE';
+          else if (pUpper.includes('PAYTM')) mode = 'PAYTM';
+          else if (pUpper.includes('UPI')) mode = 'UPI';
+
+          const dateMatch = pStr.match(/\((.*?)\)/);
+          const dateStr = dateMatch ? dateMatch[1] : m.name;
+
+          if (amt > 0 || m.status === 'Paid') {
+            parsedHistory.push({
+              id: `tx_${m.key}_${pIdx}_${rowIndex}`,
+              date: dateStr,
+              monthKey: m.key,
+              monthName: m.name,
+              mode: mode,
+              amount: amt || m.amount,
+              discount: discount,
+              transactionId: transactionId || 'SHEET_REC',
+              notes: `${m.name} Collection (${pStr})`
+            });
+          }
+        }
       });
     }
-    if (cash > 0) {
-      history.push({
-        id: `tx_init_cash_${rowIndex}`,
-        date: date1 || 'Recent',
-        mode: 'CASH',
-        amount: cash,
-        discount: 0,
-        transactionId: 'CASH_PAYMENT',
-        notes: 'Cash Collection'
-      });
-    }
-  }
+  });
+
+  const memoryLogs = paymentTransactionLogs[username] || [];
+  const historyMap = new Map();
+  // Reverse parsedHistory so latest months appear first
+  [...parsedHistory].reverse().forEach(item => historyMap.set(item.id, item));
+  memoryLogs.forEach(item => historyMap.set(item.id, item));
+  let history = Array.from(historyMap.values());
 
   return {
     rowIndex,
