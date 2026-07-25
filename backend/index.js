@@ -93,8 +93,10 @@ const CACHE_TTL = 2 * 60 * 1000; // 2 minutes
 let customerCache = { data: null, timestamp: 0 };
 
 function getCachedCustomers() {
-  if (customerCache.data && Date.now() - customerCache.timestamp < CACHE_TTL) {
-    return customerCache.data;
+  if (customerCache.data && (Date.now() - customerCache.timestamp < CACHE_TTL)) {
+    if (customerCache.data.length > 0 && customerCache.data[0].monthlyPayments) {
+      return customerCache.data;
+    }
   }
   return null;
 }
