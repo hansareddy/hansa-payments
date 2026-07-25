@@ -106,56 +106,82 @@ function fixPrivateKey(rawKey) {
   return str;
 }
 
+function parseCredentials(envVal) {
+  if (!envVal || typeof envVal !== 'string') return null;
+  const str = envVal.trim().replace(/^["']|["']$/g, '');
+  if (!str) return null;
+
+  // Case A: Raw JSON string (starts with '{')
+  if (str.startsWith('{')) {
+    try {
+      return JSON.parse(str);
+    } catch (e) {
+      console.error('Failed to parse raw JSON credentials:', e.message);
+    }
+  }
+
+  // Case B: Base64 encoded string
+  try {
+    const decoded = Buffer.from(str, 'base64').toString('utf8').trim();
+    if (decoded.startsWith('{')) {
+      return JSON.parse(decoded);
+    }
+  } catch (e) {
+    // continue
+  }
+
+  // Case C: Fallback JSON parse
+  try {
+    return JSON.parse(str);
+  } catch (e) {
+    return null;
+  }
+}
+
 async function getClient() {
   if (sheetsClient) return sheetsClient;
 
   let auth;
 
-  // Priority 1: Base64-encoded credentials (most reliable for cloud deployment)
-  if (process.env.GOOGLE_CREDENTIALS_BASE64) {
-    try {
-      const decoded = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64.trim(), 'base64').toString('utf8');
-      const credentials = JSON.parse(decoded);
-      if (credentials.private_key) {
-        credentials.private_key = fixPrivateKey(credentials.private_key);
-      }
-      console.log('✅ Google credentials loaded from GOOGLE_CREDENTIALS_BASE64');
+  // Cloud deployment: Try GOOGLE_CREDENTIALS_BASE64 or GOOGLE_CREDENTIALS_JSON
+  const rawEnv = process.env.GOOGLE_CREDENTIALS_BASE64 || process.env.GOOGLE_CREDENTIALS_JSON;
+  if (rawEnv) {
+    const credentials = parseCredentials(rawEnv);
+    if (credentials && credentials.private_key) {
+      credentials.private_key = fixPrivateKey(credentials.private_key);
+      console.log(`✅ Google credentials loaded successfully for: "${credentials.client_email || 'Service Account'}"`);
       auth = new google.auth.GoogleAuth({
         credentials,
         scopes: ['https://www.googleapis.com/auth/spreadsheets'],
       });
-    } catch (err) {
-      console.error('Failed to parse GOOGLE_CREDENTIALS_BASE64:', err.message);
     }
   }
 
-  // Priority 2: Raw JSON string (may have escape issues from web paste)
-  if (!auth && process.env.GOOGLE_CREDENTIALS_JSON) {
-    try {
-      const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
-      if (credentials.private_key) {
-        credentials.private_key = fixPrivateKey(credentials.private_key);
-      }
-      console.log('✅ Google credentials loaded from GOOGLE_CREDENTIALS_JSON');
-      auth = new google.auth.GoogleAuth({
-        credentials,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-      });
-    } catch (err) {
-      console.error('Failed to parse GOOGLE_CREDENTIALS_JSON:', err.message);
-    }
-  }
-
-  // Priority 3: Local credentials file (development)
+  // Priority 3: Local credentials file (development fallback)
   if (!auth) {
     const credentialsPath = path.resolve(
       __dirname,
       process.env.GOOGLE_APPLICATION_CREDENTIALS || 'credentials.json'
     );
-    auth = new google.auth.GoogleAuth({
-      keyFile: credentialsPath,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
+    if (fs.existsSync(credentialsPath)) {
+      try {
+        const fileData = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
+        if (fileData && fileData.private_key) {
+          fileData.private_key = fixPrivateKey(fileData.private_key);
+        }
+        console.log('✅ Google credentials loaded from local JSON file.');
+        auth = new google.auth.GoogleAuth({
+          credentials: fileData,
+          scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+        });
+      } catch (e) {
+        console.error('Failed to read local credentials file:', e.message);
+      }
+    }
+  }
+
+  if (!auth) {
+    throw new Error('Google credentials not found or unparseable in environment variables or file.');
   }
 
   const authClient = await auth.getClient();
