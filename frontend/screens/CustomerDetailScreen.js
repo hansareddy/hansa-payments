@@ -91,10 +91,14 @@ export default function CustomerDetailScreen({ route, navigation }) {
   };
 
   const status = getStatusStyle(currentCustomer.balance);
-  const hasUrgentComplaint = currentCustomer.forField && currentCustomer.forField.startsWith('[URGENT]');
-  const cleanComplaint = hasUrgentComplaint 
-    ? currentCustomer.forField.replace('[URGENT]', '').trim() 
-    : currentCustomer.forField;
+  const rawFor = (currentCustomer.forField || '').trim();
+  const isReservedStatus = ['active', 'inactive', 'new', 'cash', 'upi', 'bank', 'new account created'].includes(rawFor.toLowerCase()) || rawFor.toLowerCase().startsWith('cash') || rawFor.toLowerCase().startsWith('upi');
+  
+  const hasComplaint = rawFor !== '' && !isReservedStatus;
+  const hasUrgentComplaint = hasComplaint && rawFor.startsWith('[URGENT]');
+  const cleanComplaint = hasComplaint
+    ? (hasUrgentComplaint ? rawFor.replace('[URGENT]', '').trim() : rawFor)
+    : '';
 
   return (
     <View style={styles.container}>
@@ -117,11 +121,13 @@ export default function CustomerDetailScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* URGENT COMPLAINT BANNER IF ACTIVE */}
-        {hasUrgentComplaint && (
-          <View style={styles.complaintBanner}>
-            <Text style={styles.complaintBannerTitle}>⚠️ PENDING URGENT COMPLAINT</Text>
-            <Text style={styles.complaintBannerMsg}>{cleanComplaint}</Text>
+        {/* ACTIVE COMPLAINT BANNER */}
+        {hasComplaint && (
+          <View style={[styles.complaintBanner, !hasUrgentComplaint && { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
+            <Text style={[styles.complaintBannerTitle, !hasUrgentComplaint && { color: '#1D4ED8' }]}>
+              {hasUrgentComplaint ? '⚠️ PENDING URGENT COMPLAINT' : '📋 ACTIVE COMPLAINT / NOTE'}
+            </Text>
+            <Text style={[styles.complaintBannerMsg, !hasUrgentComplaint && { color: '#1E40AF' }]}>{cleanComplaint}</Text>
           </View>
         )}
 
@@ -293,8 +299,8 @@ export default function CustomerDetailScreen({ route, navigation }) {
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Account Notes / Complaint</Text>
-            <Text style={[styles.infoValue, { color: hasUrgentComplaint ? '#DC2626' : '#475569', flex: 1, textAlign: 'right', marginLeft: 16 }]} numberOfLines={1}>
-              {cleanComplaint || 'No active notes'}
+            <Text style={[styles.infoValue, { color: hasUrgentComplaint ? '#DC2626' : (hasComplaint ? '#2563EB' : '#94A3B8'), flex: 1, textAlign: 'right', marginLeft: 16 }]} numberOfLines={1}>
+              {hasComplaint ? (hasUrgentComplaint ? `[URGENT] ${cleanComplaint}` : cleanComplaint) : 'No active notes / complaints'}
             </Text>
           </View>
         </View>
