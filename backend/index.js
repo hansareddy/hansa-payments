@@ -120,6 +120,30 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.get('/api/debug-sheet', async (req, res) => {
+  try {
+    const rawSpreadsheetId = process.env.SPREADSHEET_ID;
+    const rawSheetName = process.env.SHEET_NAME;
+    const isConfigured = require('./sheets').getAllRows ? true : false;
+    const rows = await require('./sheets').getAllRows();
+    res.json({
+      spreadsheetId: rawSpreadsheetId,
+      sheetName: rawSheetName,
+      isConfigured,
+      rowCount: rows ? rows.length : null,
+      firstRow: rows && rows.length > 0 ? rows[0] : null,
+      secondRow: rows && rows.length > 1 ? rows[1] : null,
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+      stack: err.stack,
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      sheetName: process.env.SHEET_NAME,
+    });
+  }
+});
+
 // ── Authentication (public, rate-limited) ─────────────────────────────────────
 
 /**

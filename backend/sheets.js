@@ -228,16 +228,24 @@ function rowToCustomer(row, rowIndex) {
  * Resolve the actual sheet tab name once, then cache it for all future reads+writes.
  * This fixes the bug where reads succeed (via auto-detect) but writes fail (hardcoded name).
  */
+function getSpreadsheetId() {
+  return (process.env.SPREADSHEET_ID || '').trim().replace(/^["']|["']$/g, '');
+}
+
+/**
+ * Resolve the actual sheet tab name once, then cache it for all future reads+writes.
+ * This fixes the bug where reads succeed (via auto-detect) but writes fail (hardcoded name).
+ */
 async function resolveSheetName() {
   if (_resolvedSheetName) return _resolvedSheetName;
 
   const client = await getClient();
-  const spreadsheetId = process.env.SPREADSHEET_ID;
-  const configuredName = process.env.SHEET_NAME;
+  const spreadsheetId = getSpreadsheetId();
+  const rawConfigured = (process.env.SHEET_NAME || '').trim().replace(/^["']|["']$/g, '');
 
   // Try the configured name first
-  if (configuredName) {
-    for (const name of [configuredName, configuredName.trim()]) {
+  if (rawConfigured) {
+    for (const name of [rawConfigured, rawConfigured.trim()]) {
       try {
         const response = await client.spreadsheets.values.get({
           spreadsheetId,
@@ -273,7 +281,7 @@ async function resolveSheetName() {
 async function getAllRows() {
   if (!isGoogleConfigured()) return null;
   const client = await getClient();
-  const spreadsheetId = process.env.SPREADSHEET_ID;
+  const spreadsheetId = getSpreadsheetId();
   const sheetName = await resolveSheetName();
 
   const response = await client.spreadsheets.values.get({
