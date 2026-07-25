@@ -262,43 +262,6 @@ export default function CustomerListScreen({ navigation }) {
               Note: {displayNotes}
             </Text>
           )}
-
-          {/* 12-Month Payment Status Preview Bar */}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 6, gap: 3 }}>
-            {(item.monthlyPayments || [
-              { short: 'Jan', status: 'Unpaid' },
-              { short: 'Feb', status: 'Unpaid' },
-              { short: 'Mar', status: 'Unpaid' },
-              { short: 'Apr', status: 'Unpaid' },
-              { short: 'May', status: 'Unpaid' },
-              { short: 'Jun', status: 'Unpaid' },
-              { short: 'Jul', status: 'Unpaid' },
-              { short: 'Aug', status: 'Unpaid' },
-              { short: 'Sep', status: 'Unpaid' },
-              { short: 'Oct', status: 'Unpaid' },
-              { short: 'Nov', status: 'Unpaid' },
-              { short: 'Dec', status: 'Unpaid' },
-            ]).map((m, idx) => {
-              const isPaid = m.status === 'Paid';
-              return (
-                <View
-                  key={m.key || idx}
-                  style={{
-                    paddingHorizontal: 4,
-                    paddingVertical: 1,
-                    borderRadius: 4,
-                    backgroundColor: isPaid ? '#D1FAE5' : '#FEE2E2',
-                    borderWidth: 0.5,
-                    borderColor: isPaid ? '#A7F3D0' : '#FECACA',
-                  }}
-                >
-                  <Text style={{ fontSize: 9, fontWeight: '700', color: isPaid ? '#047857' : '#B91C1C' }}>
-                    {m.short} {isPaid ? '✓' : '✗'}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
         </View>
 
         <View style={styles.rowRight}>

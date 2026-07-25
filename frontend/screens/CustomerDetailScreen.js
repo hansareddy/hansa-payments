@@ -211,13 +211,40 @@ export default function CustomerDetailScreen({ route, navigation }) {
           ) : null}
         </View>
 
-        {/* 2026 Monthly Billing & Payment Status Table */}
+        {/* 2026 Monthly Billing & Payment Status Ledger Hub */}
         <View style={styles.sectionCard}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <Text style={styles.sectionTitle}>2026 Monthly Payment Status</Text>
-            <View style={{ backgroundColor: '#EEF2FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#4F46E5' }}>
-                ₹{currentCustomer.monthlyFee || 300}/mo
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <View>
+              <Text style={styles.sectionTitle}>2026 Annual Billing Ledger</Text>
+              <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>Monthly subscription payment history</Text>
+            </View>
+            <View style={{ backgroundColor: '#EEF2FF', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: '#C7D2FE' }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#4338CA' }}>
+                ₹{currentCustomer.monthlyFee || 300}/month
+              </Text>
+            </View>
+          </View>
+
+          {/* Quick Metrics Bar */}
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+            <View style={{ flex: 1, backgroundColor: '#F8FAFC', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '600', textTransform: 'uppercase' }}>Paid Months</Text>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#059669', marginTop: 2 }}>
+                {(currentCustomer.monthlyPayments || []).filter(m => m.status === 'Paid').length} / 12
+              </Text>
+            </View>
+
+            <View style={{ flex: 1, backgroundColor: '#F8FAFC', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '600', textTransform: 'uppercase' }}>Unpaid Months</Text>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: (currentCustomer.unpaidMonths || []).length > 0 ? '#DC2626' : '#059669', marginTop: 2 }}>
+                {(currentCustomer.unpaidMonths || []).length} Months
+              </Text>
+            </View>
+
+            <View style={{ flex: 1, backgroundColor: '#F8FAFC', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '600', textTransform: 'uppercase' }}>Total Pending</Text>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: currentCustomer.balance > 0 ? '#DC2626' : '#059669', marginTop: 2 }}>
+                {formatCurrency(currentCustomer.balance)}
               </Text>
             </View>
           </View>
@@ -225,33 +252,46 @@ export default function CustomerDetailScreen({ route, navigation }) {
           {currentCustomer.monthlyPayments && currentCustomer.monthlyPayments.length > 0 ? (
             <View style={styles.monthTable}>
               <View style={styles.monthTableHeader}>
-                <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 1.5 }]}>Month</Text>
+                <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 1.6 }]}>Month</Text>
                 <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 1 }]}>Fee</Text>
                 <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 1.3 }]}>Status</Text>
-                <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 2 }]}>Paid Details</Text>
+                <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 2.1 }]}>Payment Details</Text>
               </View>
 
               {currentCustomer.monthlyPayments.map((m, i) => {
                 const isPaid = m.status === 'Paid';
                 return (
                   <View key={m.key || i} style={[styles.monthTableRow, i % 2 === 1 && { backgroundColor: '#F8FAFC' }]}>
-                    <Text style={[styles.monthTableCell, { flex: 1.5, fontWeight: '600', color: '#1E293B' }]}>{m.name}</Text>
-                    <Text style={[styles.monthTableCell, { flex: 1, color: '#475569' }]}>₹{m.amount || currentCustomer.monthlyFee || 300}</Text>
+                    <Text style={[styles.monthTableCell, { flex: 1.6, fontWeight: '600', color: '#1E293B' }]}>{m.name}</Text>
+                    <Text style={[styles.monthTableCell, { flex: 1, color: '#475569', fontWeight: '500' }]}>₹{m.amount || currentCustomer.monthlyFee || 300}</Text>
                     <View style={{ flex: 1.3, alignItems: 'flex-start' }}>
                       <View style={{
-                        paddingHorizontal: 6,
-                        paddingVertical: 2,
-                        borderRadius: 10,
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderRadius: 12,
                         backgroundColor: isPaid ? '#D1FAE5' : '#FEE2E2'
                       }}>
-                        <Text style={{ fontSize: 10, fontWeight: '700', color: isPaid ? '#047857' : '#B91C1C' }}>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: isPaid ? '#047857' : '#B91C1C' }}>
                           {isPaid ? '✅ Paid' : '❌ Unpaid'}
                         </Text>
                       </View>
                     </View>
-                    <Text style={[styles.monthTableCell, { flex: 2, fontSize: 11, color: isPaid ? '#059669' : '#94A3B8' }]} numberOfLines={1}>
-                      {m.details || '—'}
-                    </Text>
+                    <View style={{ flex: 2.1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={[styles.monthTableCell, { fontSize: 11, color: isPaid ? '#059669' : '#94A3B8', flex: 1 }]} numberOfLines={1}>
+                        {m.details || (isPaid ? 'Paid' : 'Unpaid')}
+                      </Text>
+                      {!isPaid && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            Vibration.vibrate(30);
+                            navigation.navigate('Payment', { customer: currentCustomer });
+                          }}
+                          style={{ backgroundColor: '#2563EB', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}
+                        >
+                          <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}>PAY</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                 );
               })}
