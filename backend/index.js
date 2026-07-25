@@ -167,9 +167,23 @@ app.get('/api/debug-sheet', async (req, res) => {
       error: err.message,
       stack: err.stack,
       parsedKeySample,
-      spreadsheetId: process.env.SPREADSHEET_ID,
-      sheetName: process.env.SHEET_NAME,
     });
+  }
+});
+
+app.get('/api/test-sheets', async (req, res) => {
+  try {
+    const sheetsModule = require('./sheets');
+    const rows = await sheetsModule.getAllRows();
+    const customers = await sheetsModule.getAllCustomers();
+    const testUser = customers.find(c => c.username && c.username.includes('TEST_SUBSCRIBER_VIP_01'));
+    res.json({
+      rowsLength: rows ? rows.length : 0,
+      totalCount: customers.length,
+      testUserSample: testUser || null,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message, stack: err.stack });
   }
 });
 
