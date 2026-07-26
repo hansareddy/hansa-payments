@@ -23,7 +23,7 @@ import { getUsers, createUser, removeUser } from '../services/api';
 import { useAuth } from '../services/AuthContext';
 
 export default function ManageUsersScreen({ navigation }) {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, logout } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -183,10 +183,33 @@ export default function ManageUsersScreen({ navigation }) {
 
       {/* Header info */}
       <View style={styles.headerInfo}>
-        <Text style={styles.headerTitle}>User Accounts</Text>
-        <Text style={styles.headerSub}>
-          {users.length} registered {users.length === 1 ? 'user' : 'users'}
-        </Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View>
+            <Text style={styles.headerTitle}>User Accounts</Text>
+            <Text style={styles.headerSub}>
+              {users.length} registered {users.length === 1 ? 'user' : 'users'}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#EF4444',
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 8,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              elevation: 2,
+            }}
+            onPress={() => {
+              Vibration.vibrate(20);
+              logout();
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>🚪 Logout</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* States */}

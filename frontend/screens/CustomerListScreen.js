@@ -355,14 +355,6 @@ export default function CustomerListScreen({ navigation }) {
             >
               <Text style={styles.addBtnText}>+ ADD</Text>
             </TouchableOpacity>
-
-            {/* Logout button */}
-            <TouchableOpacity 
-              style={[styles.complaintsBtn, { backgroundColor: '#EF4444', borderColor: '#DC2626', paddingHorizontal: 10, marginLeft: 6 }]} 
-              onPress={() => { Vibration.vibrate(20); logout(); }}
-            >
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>🚪 Logout</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
