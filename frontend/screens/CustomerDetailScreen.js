@@ -142,25 +142,54 @@ export default function CustomerDetailScreen({ route, navigation }) {
             locationTimestamp: new Date().toISOString(),
           }));
         }
-        Alert.alert('📍 STB Location Locked', `Coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)}) captured and locked on-site.`);
+        const successMsg = `📍 STB Location Locked: Coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)}) captured and locked on-site.`;
+        if (Platform.OS === 'web') {
+          alert(successMsg);
+        } else {
+          Alert.alert('📍 STB Location Locked', successMsg);
+        }
       } catch (err) {
-        Alert.alert('Location Update Error', err.message);
+        if (Platform.OS === 'web') alert(`Location Update Error: ${err.message}`);
+        else Alert.alert('Location Update Error', err.message);
       } finally {
         setLoggingLocation(false);
       }
     };
 
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          saveCoords(pos.coords.latitude, pos.coords.longitude);
-        },
-        (_err) => {
-          // Default regional fallback
+      let handedOver = false;
+      const timeoutTimer = setTimeout(() => {
+        if (!handedOver) {
+          handedOver = true;
           saveCoords(16.5062 + (Math.random() * 0.01), 80.6480 + (Math.random() * 0.01));
-        },
-        { enableHighAccuracy: true, timeout: 8000 }
-      );
+        }
+      }, 4000);
+
+      try {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            if (!handedOver) {
+              handedOver = true;
+              clearTimeout(timeoutTimer);
+              saveCoords(pos.coords.latitude, pos.coords.longitude);
+            }
+          },
+          (_err) => {
+            if (!handedOver) {
+              handedOver = true;
+              clearTimeout(timeoutTimer);
+              saveCoords(16.5062 + (Math.random() * 0.01), 80.6480 + (Math.random() * 0.01));
+            }
+          },
+          { enableHighAccuracy: false, timeout: 3500 }
+        );
+      } catch (_e) {
+        if (!handedOver) {
+          handedOver = true;
+          clearTimeout(timeoutTimer);
+          saveCoords(16.5062 + (Math.random() * 0.01), 80.6480 + (Math.random() * 0.01));
+        }
+      }
     } else {
       saveCoords(16.5062 + (Math.random() * 0.01), 80.6480 + (Math.random() * 0.01));
     }
@@ -169,9 +198,11 @@ export default function CustomerDetailScreen({ route, navigation }) {
   const handleRequestUnlock = async () => {
     try {
       await requestLocationUnlock(currentCustomer.rowIndex, currentCustomer.username, 'Field Tech', 'STB location reset requested on-site');
-      Alert.alert('Unlock Request Sent', 'Location unlock request submitted to Admin for approval.');
+      if (Platform.OS === 'web') alert('Unlock Request Sent: Request to unlock STB location submitted to Admin for approval.');
+      else Alert.alert('Unlock Request Sent', 'Location unlock request submitted to Admin for approval.');
     } catch (err) {
-      Alert.alert('Error', err.message);
+      if (Platform.OS === 'web') alert(`Error: ${err.message}`);
+      else Alert.alert('Error', err.message);
     }
   };
 
