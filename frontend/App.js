@@ -12,7 +12,6 @@ import LoginScreen from './screens/LoginScreen';
 import CustomerListScreen from './screens/CustomerListScreen';
 import CustomerDetailScreen from './screens/CustomerDetailScreen';
 import PaymentScreen from './screens/PaymentScreen';
-import AddCustomerScreen from './screens/AddCustomerScreen';
 import ManageUsersScreen from './screens/ManageUsersScreen';
 
 const Stack = createNativeStackNavigator();
@@ -80,11 +79,6 @@ function AppNavigator() {
             name="Payment"
             component={PaymentScreen}
             options={{ title: 'Collect Payment' }}
-          />
-          <Stack.Screen
-            name="AddCustomer"
-            component={AddCustomerScreen}
-            options={{ title: 'Add New Account' }}
           />
           <Stack.Screen
             name="ManageUsers"

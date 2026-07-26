@@ -346,15 +346,6 @@ export default function CustomerListScreen({ navigation }) {
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity 
-              style={styles.addBtn} 
-              onPress={() => {
-                Vibration.vibrate(20);
-                navigation.navigate('AddCustomer');
-              }}
-            >
-              <Text style={styles.addBtnText}>+ ADD</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
