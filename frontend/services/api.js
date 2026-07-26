@@ -210,6 +210,10 @@ export async function requestLocationUnlock(rowIndex, username, requestedBy, rea
   return apiPost('/api/stb/unlock-request', { rowIndex, username, requestedBy, reason });
 }
 
+export async function approveLocationUnlock(requestId) {
+  return apiPost('/api/stb/approve-unlock', { requestId });
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function isNetworkError(error) {

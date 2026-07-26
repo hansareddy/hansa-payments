@@ -18,7 +18,8 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
-import { registerComplaint, searchCustomers, updateSTBLocation, requestLocationUnlock } from '../services/api';
+import { registerComplaint, searchCustomers, updateSTBLocation, requestLocationUnlock, approveLocationUnlock } from '../services/api';
+import { useAuth } from '../services/AuthContext';
 import STBMapView from '../components/STBMapView';
 
 const DEFAULT_12_MONTHS = [
@@ -37,6 +38,8 @@ const DEFAULT_12_MONTHS = [
 ];
 
 export default function CustomerDetailScreen({ route, navigation }) {
+  const { user } = useAuth();
+  const isAdmin = user && (user.role === 'admin' || user.username === 'admin');
   const customer = route?.params?.customer || {};
 
   const [currentCustomer, setCurrentCustomer] = useState(customer);
@@ -205,9 +208,29 @@ export default function CustomerDetailScreen({ route, navigation }) {
 
   const handleRequestUnlock = async () => {
     try {
-      await requestLocationUnlock(currentCustomer.rowIndex, currentCustomer.username, 'Field Tech', 'STB location reset requested on-site');
+      await requestLocationUnlock(currentCustomer.rowIndex, currentCustomer.username, user?.name || 'Field Staff', 'STB location reset requested on-site');
       if (Platform.OS === 'web') alert('Unlock Request Sent: Request to unlock STB location submitted to Admin for approval.');
       else Alert.alert('Unlock Request Sent', 'Location unlock request submitted to Admin for approval.');
+    } catch (err) {
+      if (Platform.OS === 'web') alert(`Error: ${err.message}`);
+      else Alert.alert('Error', err.message);
+    }
+  };
+
+  const handleAdminDirectUnlock = async () => {
+    try {
+      const res = await requestLocationUnlock(currentCustomer.rowIndex, currentCustomer.username, user?.name || 'Admin', 'Admin direct unlock');
+      if (res && res.request && res.request.id) {
+        await approveLocationUnlock(res.request.id);
+      }
+      setCurrentCustomer(prev => ({
+        ...prev,
+        locationLocked: false,
+        locationLoggedBy: null,
+      }));
+      const msg = '🔓 STB Location unlocked by Admin. Field staff can now log updated coordinates.';
+      if (Platform.OS === 'web') alert(msg);
+      else Alert.alert('Location Unlocked', msg);
     } catch (err) {
       if (Platform.OS === 'web') alert(`Error: ${err.message}`);
       else Alert.alert('Error', err.message);
@@ -435,6 +458,36 @@ export default function CustomerDetailScreen({ route, navigation }) {
                 </>
               )}
             </TouchableOpacity>
+          ) : isAdmin ? (
+            <View style={{ backgroundColor: '#EEF2FF', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#C7D2FE' }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={{ fontSize: 16 }}>🔒</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#3730A3' }}>
+                    ADMIN PERMISSION OVERRIDE
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 11, color: '#4338CA', fontWeight: '600' }}>
+                  Locked by: {currentCustomer.locationLoggedBy || 'Staff'}
+                </Text>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity
+                  onPress={handleCaptureSTBLocation}
+                  disabled={loggingLocation}
+                  style={{ flex: 1, backgroundColor: '#2563EB', paddingVertical: 8, borderRadius: 8, alignItems: 'center' }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>⚡ Re-Lock / Update GPS</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleAdminDirectUnlock}
+                  style={{ flex: 1, backgroundColor: '#DC2626', paddingVertical: 8, borderRadius: 8, alignItems: 'center' }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>🔓 Admin Direct Unlock</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           ) : (
             <View style={{ backgroundColor: '#F0FDF4', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#BBF7D0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -445,7 +498,7 @@ export default function CustomerDetailScreen({ route, navigation }) {
               </View>
               <TouchableOpacity
                 onPress={handleRequestUnlock}
-                style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: '#FDE68A' }}
+                style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: '#FDE68A' }}
               >
                 <Text style={{ fontSize: 11, fontWeight: '700', color: '#B45309' }}>🔓 Request Admin Unlock</Text>
               </TouchableOpacity>
