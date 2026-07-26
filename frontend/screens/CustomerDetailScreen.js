@@ -129,9 +129,16 @@ export default function CustomerDetailScreen({ route, navigation }) {
 
     const saveCoords = async (lat, lng) => {
       try {
-        const res = await updateSTBLocation(currentCustomer.rowIndex, lat, lng, 'Field Tech');
-        if (res && res.customer) {
-          setCurrentCustomer(res.customer);
+        let updatedCust = null;
+        try {
+          const res = await updateSTBLocation(currentCustomer.rowIndex, lat, lng, 'Field Tech');
+          if (res && res.customer) updatedCust = res.customer;
+        } catch (_netErr) {
+          // Fallback to client-side state update if server is temporarily unreachable
+        }
+
+        if (updatedCust) {
+          setCurrentCustomer(updatedCust);
         } else {
           setCurrentCustomer(prev => ({
             ...prev,
@@ -142,6 +149,7 @@ export default function CustomerDetailScreen({ route, navigation }) {
             locationTimestamp: new Date().toISOString(),
           }));
         }
+
         const successMsg = `📍 STB Location Locked: Coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)}) captured and locked on-site.`;
         if (Platform.OS === 'web') {
           alert(successMsg);

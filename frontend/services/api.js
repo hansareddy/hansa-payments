@@ -59,11 +59,22 @@ async function apiFetch(url, options = {}, retried = false) {
   return response;
 }
 
-async function apiGet(path) {
-  const response = await apiFetch(`${getBaseUrl()}${path}`);
+async function parseResponse(response) {
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    if (!response.ok) {
+      throw new Error(`Backend server unavailable (${response.status}). Please check network connection or try again.`);
+    }
+    throw new Error('Unexpected response format from server.');
+  }
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
   return data;
+}
+
+async function apiGet(path) {
+  const response = await apiFetch(`${getBaseUrl()}${path}`);
+  return parseResponse(response);
 }
 
 async function apiPost(path, body) {
@@ -71,9 +82,7 @@ async function apiPost(path, body) {
     method: 'POST',
     body: JSON.stringify(body),
   });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
-  return data;
+  return parseResponse(response);
 }
 
 async function apiPut(path, body) {
@@ -81,9 +90,7 @@ async function apiPut(path, body) {
     method: 'PUT',
     body: JSON.stringify(body),
   });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
-  return data;
+  return parseResponse(response);
 }
 
 async function apiDelete(path) {
