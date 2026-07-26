@@ -374,7 +374,7 @@ app.get('/api/customers/:rowIndex', async (req, res) => {
 
 app.post('/api/payments', async (req, res) => {
   try {
-    const { rowIndex, paymentMode, paymentAmount, transactionId, username } = req.body;
+    const { rowIndex, paymentMode, paymentAmount, transactionId, username, discount: bodyDiscount } = req.body;
 
     if (!rowIndex || !paymentMode || paymentAmount === undefined) {
       return res.status(400).json({
@@ -391,13 +391,14 @@ app.post('/api/payments', async (req, res) => {
       return res.status(400).json({ error: 'Invalid payment amount' });
     }
 
+    const discountVal = parseFloat(bodyDiscount) || 0;
     const monthKey = req.body.monthKey || req.body.selectedMonthKey || '';
 
     const updatedCustomer = await updatePayment(
       parseInt(rowIndex, 10),
       paymentMode.toUpperCase(),
       amount,
-      discount,
+      discountVal,
       transactionId || '',
       req.body.notes || '',
       username || '',
