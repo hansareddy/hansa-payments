@@ -122,6 +122,22 @@ invalidateCache();
 
 // ── Health check (public) ─────────────────────────────────────────────────────
 
+app.get('/api/debug/env', async (req, res) => {
+  try {
+    const { getSpreadsheetId, resolveSheetName } = require('./sheets');
+    const spreadsheetId = getSpreadsheetId();
+    const sheetName = await resolveSheetName();
+    res.json({
+      spreadsheetId,
+      sheetName,
+      envSpreadsheetId: process.env.SPREADSHEET_ID || '(none)',
+      envSheetName: process.env.SHEET_NAME || '(none)',
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
