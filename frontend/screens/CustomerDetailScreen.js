@@ -610,10 +610,9 @@ export default function CustomerDetailScreen({ route, navigation }) {
 
           <View style={styles.monthTable}>
             <View style={styles.monthTableHeader}>
-              <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 1.6 }]}>Month</Text>
-              <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 1 }]}>Fee</Text>
-              <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 1.3 }]}>Status</Text>
-              <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 2.1 }]}>Payment Details</Text>
+              <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 2 }]}>MONTH</Text>
+              <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 1.2, textAlign: 'center' }]}>FEE</Text>
+              <Text style={[styles.monthTableCell, styles.monthHeaderCell, { flex: 1.3, textAlign: 'right' }]}>ACTION</Text>
             </View>
 
             {displayPayments.map((m, i) => {
@@ -622,38 +621,30 @@ export default function CustomerDetailScreen({ route, navigation }) {
               const isNotDue = !isPaid && !isUnpaid;
 
               return (
-                <View key={m.key || i} style={[styles.monthTableRow, i % 2 === 1 && { backgroundColor: '#F8FAFC' }, isNotDue && { opacity: 0.55 }]}>
-                  <Text style={[styles.monthTableCell, { flex: 1.6, fontWeight: '600', color: isNotDue ? '#64748B' : '#1E293B' }]}>{m.name}</Text>
-                  <Text style={[styles.monthTableCell, { flex: 1, color: isNotDue ? '#CBD5E1' : '#475569', fontWeight: '500' }]}>
-                    {isNotDue ? '-' : `₹${m.amount || displayFeeRate}`}
+                <View key={m.key || i} style={[styles.monthTableRow, i % 2 === 1 && { backgroundColor: '#F8FAFC' }, isNotDue && { opacity: 0.45 }]}>
+                  <Text style={[styles.monthTableCell, { flex: 2, fontWeight: '600', color: isNotDue ? '#94A3B8' : '#1E293B' }]}>{m.name}</Text>
+                  
+                  <Text style={[styles.monthTableCell, { flex: 1.2, textAlign: 'center', fontWeight: '700', color: isPaid ? '#059669' : (isUnpaid ? '#DC2626' : '#CBD5E1') }]}>
+                    {isPaid ? '0' : (isUnpaid ? `₹${m.amount}` : '-')}
                   </Text>
-                  <View style={{ flex: 1.3, alignItems: 'flex-start' }}>
+                  
+                  <View style={{ flex: 1.3, alignItems: 'flex-end' }}>
                     {isPaid ? (
                       <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, backgroundColor: '#D1FAE5' }}>
                         <Text style={{ fontSize: 11, fontWeight: '700', color: '#047857' }}>✓ Paid</Text>
                       </View>
                     ) : isUnpaid ? (
-                      <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, backgroundColor: '#FEE2E2' }}>
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#B91C1C' }}>✕ Unpaid</Text>
-                      </View>
-                    ) : (
-                      <Text style={{ fontSize: 11, color: '#CBD5E1', fontWeight: '500' }}>-</Text>
-                    )}
-                  </View>
-                  <View style={{ flex: 2.1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={[styles.monthTableCell, { fontSize: 11, color: isPaid ? '#059669' : (isUnpaid ? '#B91C1C' : '#CBD5E1'), flex: 1 }]} numberOfLines={1}>
-                      {isNotDue ? '-' : (m.details || (isPaid ? 'Paid' : `₹${m.amount}`)) }
-                    </Text>
-                    {isUnpaid && (
                       <TouchableOpacity
                         onPress={() => {
                           Vibration.vibrate(30);
                           navigation.navigate('Payment', { customer: currentCustomer, preselectMonth: m.key });
                         }}
-                        style={{ backgroundColor: '#2563EB', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}
+                        style={{ backgroundColor: '#2563EB', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 6 }}
                       >
                         <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '800' }}>PAY</Text>
                       </TouchableOpacity>
+                    ) : (
+                      <Text style={{ fontSize: 11, color: '#CBD5E1', fontWeight: '500' }}>-</Text>
                     )}
                   </View>
                 </View>
