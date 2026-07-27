@@ -6,12 +6,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Platform } from 'react-native';
 
-export default function STBMapView({ latitude, longitude, label, serialNumber, isLocked, lockedBy, customers = [] }) {
+export default function STBMapView({ latitude, longitude, label, serialNumber, isLocked, lockedBy, customers = [], onSelectCustomer }) {
   // Check if rendering for network map mode (passed customers list)
   const isNetworkMapMode = Array.isArray(customers) && customers.length > 0;
   
   if (isNetworkMapMode) {
-    const validCustomers = customers.filter(c => c && c.latitude && c.longitude && !isNaN(parseFloat(c.latitude)) && !isNaN(parseFloat(c.longitude)));
+    const validCustomers = customers.filter(c => c && c.latitude !== null && c.longitude !== null && !isNaN(parseFloat(c.latitude)) && !isNaN(parseFloat(c.longitude)));
     
     let centerLat = 16.5062;
     let centerLng = 80.6480;
@@ -23,7 +23,64 @@ export default function STBMapView({ latitude, longitude, label, serialNumber, i
       centerLng = sumLng / validCustomers.length;
     }
 
-    const networkOsmUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${centerLng - 0.03}%2C${centerLat - 0.03}%2C${centerLng + 0.03}%2C${centerLat + 0.03}&layer=mapnik&marker=${centerLat}%2C${centerLng}`;
+    // Build interactive Leaflet HTML for web iframe with individual markers for every mapped STB
+    const markersData = JSON.stringify(validCustomers.map(c => ({
+      name: c.username || 'Unknown',
+      boxNo: c.boxNo || '',
+      serial: c.serialNumber || '',
+      lat: parseFloat(c.latitude),
+      lng: parseFloat(c.longitude),
+      rowIndex: c.rowIndex,
+    })));
+
+    const leafletHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <style>
+          html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+          .leaflet-popup-content-wrapper { border-radius: 10px; padding: 6px; }
+          .popup-title { font-weight: bold; font-size: 14px; color: #1E3A8A; margin-bottom: 2px; }
+          .popup-sub { font-size: 11px; color: #475569; margin-bottom: 4px; }
+          .popup-badge { display: inline-block; background: #D1FAE5; color: #047857; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div id="map"></div>
+        <script>
+          const map = L.map('map');
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+          }).addTo(map);
+
+          const data = ${markersData};
+          const bounds = [];
+
+          data.forEach(c => {
+            const marker = L.marker([c.lat, c.lng]).addTo(map);
+            marker.bindPopup(\`
+              <div class="popup-title">\${c.name}</div>
+              <div class="popup-sub">\${c.boxNo ? 'Box #' + c.boxNo + ' • ' : ''}STB: \${c.serial || 'No Serial'}</div>
+              <div class="popup-sub">GPS: \${c.lat.toFixed(5)}, \${c.lng.toFixed(5)}</div>
+              <div class="popup-badge">🔒 LOCKED ON-SITE</div>
+            \`);
+            bounds.push([c.lat, c.lng]);
+          });
+
+          if (bounds.length > 0) {
+            map.fitBounds(bounds, { padding: [35, 35], maxZoom: 16 });
+          } else {
+            map.setView([16.5062, 80.6480], 12);
+          }
+        </script>
+      </body>
+      </html>
+    `;
 
     return (
       <View style={styles.container}>
@@ -44,12 +101,10 @@ export default function STBMapView({ latitude, longitude, label, serialNumber, i
               <iframe
                 title="Network STB Map"
                 width="100%"
-                height="260"
+                height="300"
                 frameBorder="0"
                 scrolling="no"
-                marginHeight="0"
-                marginWidth="0"
-                src={networkOsmUrl}
+                srcDoc={leafletHtml}
                 style={{ borderRadius: 12, border: 'none' }}
               />
             ) : (

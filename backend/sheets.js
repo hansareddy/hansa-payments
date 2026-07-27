@@ -432,11 +432,11 @@ function rowToCustomer(row, rowIndex) {
   memoryLogs.forEach(item => historyMap.set(item.id, item));
   let history = Array.from(historyMap.values());
 
-  const userKey = username ? username.toLowerCase().trim() : String(rowIndex);
-  let stbLoc = stbLocationStore.get(userKey) || stbLocationStore.get(String(rowIndex));
+  const userKey = username ? username.toLowerCase().trim() : '';
 
-  // If not in store yet, check if raw location cell has coordinates e.g. "16.5062,80.6480"
-  if ((!stbLoc || !stbLoc.lat) && location) {
+  // 1. Primary check: If raw location cell in Google Sheet (Column C) has coordinates e.g. "16.5062,80.6480"
+  let stbLoc = null;
+  if (location && location.trim()) {
     const coordsMatch = location.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
     if (coordsMatch) {
       stbLoc = {
@@ -448,9 +448,16 @@ function rowToCustomer(row, rowIndex) {
         username,
         rowIndex,
       };
-      stbLocationStore.set(userKey, stbLoc);
-      stbLocationStore.set(String(rowIndex), stbLoc);
     }
+  }
+
+  // 2. Secondary check: Check persistent store ONLY by exact username key
+  if (!stbLoc && userKey) {
+    stbLoc = stbLocationStore.get(userKey) || null;
+  }
+
+  if (stbLoc && userKey) {
+    stbLocationStore.set(userKey, stbLoc);
   }
 
   if (!stbLoc) {
@@ -970,8 +977,8 @@ async function updateSTBLocation(rowIndex, lat, lng, loggedBy, userRole) {
   if (!current) throw new Error(`Customer not found for row ${index}`);
 
   const targetIndex = current.rowIndex;
-  const userKey = (current.username || `row_${targetIndex}`).toLowerCase().trim();
-  const existingLoc = stbLocationStore.get(userKey) || stbLocationStore.get(String(targetIndex));
+  const userKey = (current.username || '').toLowerCase().trim();
+  const existingLoc = userKey ? stbLocationStore.get(userKey) : null;
   const isAdmin = userRole === 'admin';
 
   if (existingLoc && existingLoc.isLocked && !isAdmin) {
@@ -988,8 +995,9 @@ async function updateSTBLocation(rowIndex, lat, lng, loggedBy, userRole) {
     rowIndex: targetIndex,
   };
 
-  stbLocationStore.set(userKey, updatedLoc);
-  stbLocationStore.set(String(targetIndex), updatedLoc);
+  if (userKey) {
+    stbLocationStore.set(userKey, updatedLoc);
+  }
   saveSTBLocations();
 
   console.log(`📍 STB Location logged & locked for "${current.username}" (Row ${targetIndex}): (${lat}, ${lng}) by ${updatedLoc.loggedBy}`);
