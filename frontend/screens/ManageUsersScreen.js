@@ -178,9 +178,9 @@ export default function ManageUsersScreen({ navigation }) {
 
   const getRoleBadge = (role) => {
     if (role === 'admin') {
-      return { bg: '#EEF2FF', color: '#3730A3', label: '👑 ADMIN' };
+      return { bg: '#EEF2FF', color: '#3730A3', label: 'ADMIN' };
     }
-    return { bg: '#ECFDF5', color: '#065F46', label: '💼 COLLECTOR' };
+    return { bg: '#ECFDF5', color: '#065F46', label: 'COLLECTOR' };
   };
 
   const renderUser = ({ item }) => {
@@ -218,12 +218,12 @@ export default function ManageUsersScreen({ navigation }) {
 
           {/* Granular Active Permissions Pills */}
           <View style={styles.permsPillRow}>
-            {userPerms.recordPayments && <Text style={styles.permPill}>💵 Collect Payments</Text>}
-            {userPerms.lockLocation && <Text style={styles.permPill}>📍 GPS Lock</Text>}
-            {userPerms.editProfile && <Text style={styles.permPill}>✏️ Edit Profile</Text>}
-            {userPerms.registerComplaint && <Text style={styles.permPill}>📝 Complaints</Text>}
-            {userPerms.viewMap && <Text style={styles.permPill}>🗺️ Network Map</Text>}
-            {userPerms.manageUsers && <Text style={[styles.permPill, styles.permPillAdmin]}>👥 User Mgmt</Text>}
+            {userPerms.recordPayments && <Text style={styles.permPill}>Collect Payments</Text>}
+            {userPerms.lockLocation && <Text style={styles.permPill}>GPS Lock</Text>}
+            {userPerms.editProfile && <Text style={styles.permPill}>Edit Profile</Text>}
+            {userPerms.registerComplaint && <Text style={styles.permPill}>Complaints</Text>}
+            {userPerms.viewMap && <Text style={styles.permPill}>Network Map</Text>}
+            {userPerms.manageUsers && <Text style={[styles.permPill, styles.permPillAdmin]}>User Mgmt</Text>}
           </View>
         </View>
 
@@ -261,22 +261,21 @@ export default function ManageUsersScreen({ navigation }) {
             }}
             activeOpacity={0.8}
           >
-            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>🚪 Logout</Text>
+            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>Logout</Text>
           </TouchableOpacity>
         </View>
 
         {/* Clear Active Profile Indicator Card */}
         <View style={styles.activeProfileCard}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={{ fontSize: 18 }}>👤</Text>
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={{ fontSize: 13, fontWeight: '800', color: '#1E3A8A' }}>
-                  ACTIVE PROFILE: {currentUser?.displayName || 'Admin'} (@{currentUser?.username || 'admin'})
+                  ACTIVE ACCOUNT: {currentUser?.displayName || 'Admin'} (@{currentUser?.username || 'admin'})
                 </Text>
                 <View style={{ backgroundColor: currentUser?.role === 'admin' ? '#EEF2FF' : '#ECFDF5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
                   <Text style={{ fontSize: 9, fontWeight: '800', color: currentUser?.role === 'admin' ? '#3730A3' : '#047857' }}>
-                    {currentUser?.role === 'admin' ? '👑 ADMIN' : '💼 COLLECTOR'}
+                    {currentUser?.role === 'admin' ? 'ADMIN' : 'COLLECTOR'}
                   </Text>
                 </View>
               </View>

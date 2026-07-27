@@ -419,8 +419,7 @@ export default function CustomerDetailScreen({ route, navigation }) {
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionBtnWa} onPress={handleWhatsApp}>
-            <Text style={styles.actionBtnEmoji}>💬</Text>
-            <Text style={styles.actionBtnLabel}>Send WhatsApp</Text>
+            <Text style={styles.actionBtnLabel}>WhatsApp</Text>
           </TouchableOpacity>
         </View>
 
@@ -432,7 +431,7 @@ export default function CustomerDetailScreen({ route, navigation }) {
               onPress={handleOpenEditModal}
               style={{ backgroundColor: '#EFF6FF', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: '#BFDBFE' }}
             >
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#1D4ED8' }}>✏️ Edit Profile</Text>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#1D4ED8' }}>Edit Profile</Text>
             </TouchableOpacity>
           </View>
           
@@ -454,7 +453,7 @@ export default function CustomerDetailScreen({ route, navigation }) {
               {currentCustomer.boxNo ? (
                 <View style={{ backgroundColor: '#EEF2FF', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#C7D2FE' }}>
                   <Text style={{ fontSize: 13, fontWeight: '800', color: '#3730A3' }}>
-                    📦 Box #{currentCustomer.boxNo}
+                    Box #{currentCustomer.boxNo}
                   </Text>
                 </View>
               ) : (
@@ -545,7 +544,6 @@ export default function CustomerDetailScreen({ route, navigation }) {
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
                 <>
-                  <Text style={{ fontSize: 16 }}>📍</Text>
                   <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
                     {currentCustomer.locationLocked ? 'Re-Lock / Update GPS Location' : 'Log & Lock STB Location On-Site'}
                   </Text>
@@ -570,7 +568,7 @@ export default function CustomerDetailScreen({ route, navigation }) {
                 activeOpacity={0.8}
               >
                 <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>
-                  🗑️ Reset
+                  Reset
                 </Text>
               </TouchableOpacity>
             )}
@@ -637,7 +635,7 @@ export default function CustomerDetailScreen({ route, navigation }) {
                   <View style={{ flex: 1.3, alignItems: 'flex-end' }}>
                     {isPaid ? (
                       <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, backgroundColor: '#D1FAE5' }}>
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#047857' }}>✓ Paid</Text>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#047857' }}>Paid</Text>
                       </View>
                     ) : isUnpaid ? (
                       <TouchableOpacity

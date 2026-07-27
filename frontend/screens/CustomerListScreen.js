@@ -321,10 +321,10 @@ export default function CustomerListScreen({ navigation }) {
           <View>
             <Text style={styles.headerLogo}>Hansa CRM</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-              <Text style={styles.headerSub}>👤 {user?.displayName || 'User'} (@{user?.username || 'user'})</Text>
+              <Text style={styles.headerSub}>{user?.displayName || 'User'} (@{user?.username || 'user'})</Text>
               <View style={{ backgroundColor: user?.role === 'admin' ? '#EEF2FF' : '#ECFDF5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
                 <Text style={{ fontSize: 9, fontWeight: '800', color: user?.role === 'admin' ? '#3730A3' : '#047857' }}>
-                  {user?.role === 'admin' ? '👑 ADMIN' : '💼 COLLECTOR'}
+                  {user?.role === 'admin' ? 'ADMIN' : 'COLLECTOR'}
                 </Text>
               </View>
             </View>
@@ -336,7 +336,7 @@ export default function CustomerListScreen({ navigation }) {
               onPress={() => { Vibration.vibrate(20); setShowComplaintsDrawer(true); }}
             >
               <Text style={styles.complaintsBtnText}>
-                ⚠️ {activeComplaints.length}
+                Complaints: {activeComplaints.length}
               </Text>
             </TouchableOpacity>
 
@@ -346,10 +346,7 @@ export default function CustomerListScreen({ navigation }) {
                 style={[styles.complaintsBtn, { backgroundColor: 'rgba(99,102,241,0.25)', borderColor: 'rgba(99,102,241,0.4)' }]} 
                 onPress={() => { Vibration.vibrate(20); navigation.navigate('ManageUsers'); }}
               >
-                <Image 
-                  source={{ uri: 'https://img.icons8.com/color/96/administrator-male.png' }} 
-                  style={{ width: 20, height: 20 }} 
-                />
+                <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 11 }}>Users</Text>
               </TouchableOpacity>
             )}
 
@@ -391,7 +388,7 @@ export default function CustomerListScreen({ navigation }) {
         {pendingSync > 0 && (
           <TouchableOpacity style={styles.offlineBanner} onPress={loadData}>
             <Text style={styles.offlineBannerText}>
-              ⚡ {pendingSync} offline payment{pendingSync > 1 ? 's' : ''} queued — Tap to sync now
+              Offline Queue ({pendingSync} payment{pendingSync > 1 ? 's' : ''}) — Tap to sync now
             </Text>
           </TouchableOpacity>
         )}
@@ -401,7 +398,6 @@ export default function CustomerListScreen({ navigation }) {
       <View style={styles.controlsContainer}>
         <View style={styles.searchRow}>
           <View style={styles.searchBar}>
-            <Text style={styles.searchIcon}>🔍</Text>
             <TextInput
               style={styles.searchInput}
               placeholder="Search name, mobile, box #, or IP..."
@@ -423,14 +419,14 @@ export default function CustomerListScreen({ navigation }) {
               style={styles.historyBtnPill}
               onPress={() => { Vibration.vibrate(20); setShowHistoryDrawer(true); }}
             >
-              <Text style={styles.historyBtnPillText}>📜 History</Text>
+              <Text style={styles.historyBtnPillText}>History</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.historyBtnPill, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }]}
               onPress={() => { Vibration.vibrate(20); setShowMapDrawer(true); }}
             >
-              <Text style={[styles.historyBtnPillText, { color: '#047857' }]}>🗺️ Map</Text>
+              <Text style={[styles.historyBtnPillText, { color: '#047857' }]}>STB Map</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -451,7 +447,7 @@ export default function CustomerListScreen({ navigation }) {
             onPress={() => setActiveFilter('ACTIVE')}
           >
             <Text style={[styles.tabText, activeFilter === 'ACTIVE' && styles.tabTextGreenActive]}>
-              🟢 Active ({activeCount})
+              Active ({activeCount})
             </Text>
           </TouchableOpacity>
 
@@ -460,7 +456,7 @@ export default function CustomerListScreen({ navigation }) {
             onPress={() => setActiveFilter('INACTIVE')}
           >
             <Text style={[styles.tabText, activeFilter === 'INACTIVE' && styles.tabTextRedActive]}>
-              🔴 Inactive ({inactiveCount})
+              Inactive ({inactiveCount})
             </Text>
           </TouchableOpacity>
         </View>

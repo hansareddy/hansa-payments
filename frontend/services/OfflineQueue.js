@@ -38,12 +38,13 @@ async function persist() {
 }
 
 /**
- * Add a failed payment to the offline queue.
+ * Add a failed payment or location lock to the offline queue.
  */
-export async function enqueue(paymentData, customerName) {
+export async function enqueue(paymentData, customerName, type = 'PAYMENT') {
   await loadQueue();
   queue.push({
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    type: type,
     data: paymentData,
     customerName: customerName || 'Unknown',
     createdAt: new Date().toISOString(),
@@ -52,11 +53,15 @@ export async function enqueue(paymentData, customerName) {
   return queue.length;
 }
 
+export async function enqueueLocationLock(locationData, customerName) {
+  return enqueue(locationData, customerName, 'LOCATION_LOCK');
+}
+
 /**
- * Process all pending payments using the provided API function.
+ * Process all pending offline items using the provided API functions.
  * Returns { synced: number, failed: number }.
  */
-export async function processQueue(recordPaymentFn) {
+export async function processQueue(recordPaymentFn, updateSTBLocationFn) {
   await loadQueue();
   if (queue.length === 0) return { synced: 0, failed: 0 };
 
@@ -66,13 +71,16 @@ export async function processQueue(recordPaymentFn) {
 
   for (const item of queue) {
     try {
-      await recordPaymentFn(item.data);
+      if (item.type === 'LOCATION_LOCK' && updateSTBLocationFn) {
+        await updateSTBLocationFn(item.data.rowIndex, item.data.latitude, item.data.longitude, item.data.loggedBy);
+      } else if (recordPaymentFn) {
+        await recordPaymentFn(item.data);
+      }
       synced++;
     } catch (err) {
       if (isNetworkError(err)) {
         remaining.push(item); // keep for next retry
       } else {
-        // Non-network error (e.g. validation) — drop the item to avoid infinite retries
         console.warn(`OfflineQueue: dropped item ${item.id} — ${err.message}`);
       }
       failed++;

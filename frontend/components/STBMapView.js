@@ -122,7 +122,6 @@ export default function STBMapView({ latitude, longitude, label, serialNumber, i
           </View>
         ) : (
           <View style={styles.noCoordsBox}>
-            <Text style={styles.noCoordsEmoji}>🗺️</Text>
             <Text style={styles.noCoordsTitle}>No Network STBs Mapped Yet</Text>
             <Text style={styles.noCoordsSub}>
               Field employees can tap "Log & Lock STB Location On-Site" on customer profiles when visiting premises.
@@ -151,10 +150,10 @@ export default function STBMapView({ latitude, longitude, label, serialNumber, i
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={styles.title}>📍 STB GPS Location</Text>
+          <Text style={styles.title}>STB GPS Location</Text>
           <View style={[styles.statusBadge, { backgroundColor: isLocked ? '#D1FAE5' : '#FEF3C7' }]}>
             <Text style={[styles.statusBadgeText, { color: isLocked ? '#047857' : '#B45309' }]}>
-              {isLocked ? '🔒 LOCKED & VERIFIED' : '🟡 UNVERIFIED / PENDING'}
+              {isLocked ? 'VERIFIED & LOCKED' : 'UNVERIFIED / PENDING'}
             </Text>
           </View>
         </View>
@@ -181,8 +180,8 @@ export default function STBMapView({ latitude, longitude, label, serialNumber, i
             />
           ) : (
             <View style={styles.fallbackBox}>
-              <Text style={styles.coordsText}>📍 Latitude: {mapLat.toFixed(6)}</Text>
-              <Text style={styles.coordsText}>📍 Longitude: {mapLng.toFixed(6)}</Text>
+              <Text style={styles.coordsText}>Latitude: {mapLat.toFixed(6)}</Text>
+              <Text style={styles.coordsText}>Longitude: {mapLng.toFixed(6)}</Text>
             </View>
           )}
 

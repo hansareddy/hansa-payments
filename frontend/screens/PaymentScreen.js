@@ -188,7 +188,7 @@ export default function PaymentScreen({ route, navigation }) {
             style={[styles.doneBtn, { backgroundColor: '#059669', marginBottom: 10 }]}
             onPress={() => navigation.navigate('CustomerDetail', { customer: updatedCustomer || customer, refresh: true })}
           >
-            <Text style={styles.doneBtnText}>← Back to Customer Details</Text>
+            <Text style={styles.doneBtnText}>Back to Customer Details</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -245,7 +245,7 @@ export default function PaymentScreen({ route, navigation }) {
                       {m.short}
                     </Text>
                     <Text style={{ fontSize: 10, color: isPaid ? '#059669' : (isUnpaid ? '#DC2626' : '#94A3B8'), marginTop: 2, fontWeight: '600' }}>
-                      {isPaid ? '✓ Paid' : (isUnpaid ? `₹${m.amount}` : '-')}
+                      {isPaid ? 'Paid' : (isUnpaid ? `₹${m.amount}` : '-')}
                     </Text>
                   </TouchableOpacity>
                 );
