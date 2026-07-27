@@ -317,10 +317,10 @@ function rowToCustomer(row, rowIndex) {
       key: m.key,
       name: m.name,
       short: m.short,
-      amount: monthAmount > 0 ? monthAmount : monthlyFee,
+      amount: monthAmount,
       paidAmount: paidAmount,
       status: status,
-      details: rawVal || (status === 'Paid' ? 'Paid' : (status === 'Unpaid' ? `₹${monthAmount}` : 'Not Due')),
+      details: rawVal || (status === 'Paid' ? 'Paid' : (status === 'Unpaid' ? `₹${monthAmount}` : '-')),
     });
   });
 
