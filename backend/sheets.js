@@ -98,32 +98,48 @@ function detectColumnsFromHeader(headerRow) {
   };
 
   const monthCols = {};
+  const monthPaidCols = {};
+
   MONTH_LIST.forEach((m) => {
     const keyLower = m.key.toLowerCase(); // "jan-26"
     const monthOnly = m.name.split(' ')[0].toLowerCase(); // "january"
     const shortLower = m.short.toLowerCase(); // "jan"
 
-    // 1. Look for exact match containing 26 or 2026
-    let foundIdx = norm.findIndex(h => 
+    // 1. Primary Admin Fee Column index
+    let feeIdx = norm.findIndex(h => 
       h === keyLower || 
-      h === `${monthOnly} 2026` || 
-      h === `${shortLower} 2026` || 
-      h === `${monthOnly}-26` ||
-      h === `${shortLower}-26` ||
-      h === `${monthOnly} 26` ||
-      h === `${shortLower} 26`
+      h === `${shortLower}-26 fee` || h === `${shortLower} fee` || h === `${monthOnly} fee` ||
+      h === `${shortLower}-26 plan` || h === `${shortLower} plan` || h === `${monthOnly} plan` ||
+      h === `${monthOnly} 2026` || h === `${shortLower} 2026` || 
+      h === `${monthOnly}-26` || h === `${shortLower}-26` ||
+      h === `${monthOnly} 26` || h === `${shortLower} 26`
     );
 
-    // 2. If not found with year 26, look for month header that does NOT belong to an old year (24/25)
-    if (foundIdx === -1) {
-      foundIdx = norm.findIndex(h => {
+    if (feeIdx === -1) {
+      feeIdx = norm.findIndex(h => {
         const isOldYear = h.includes('24') || h.includes('25') || h.includes('2024') || h.includes('2025');
         if (isOldYear) return false;
-        return h === monthOnly || h === shortLower || h.startsWith(monthOnly) || h.startsWith(shortLower);
+        return (h === monthOnly || h === shortLower || h.startsWith(monthOnly) || h.startsWith(shortLower)) &&
+               !h.includes('paid') && !h.includes('collected') && !h.includes('status');
       });
     }
 
-    monthCols[m.key] = foundIdx;
+    // 2. Secondary Paid / Collected Column index (if present)
+    let paidIdx = norm.findIndex(h => 
+      h === `${shortLower}-26 paid` || h === `${shortLower} paid` || h === `${monthOnly} paid` ||
+      h === `${shortLower}-26 collected` || h === `${shortLower} collected` || h === `${monthOnly} collected` ||
+      h === `${shortLower}-26 status` || h === `${shortLower} status` || h === `${monthOnly} status`
+    );
+
+    if (paidIdx === -1 && feeIdx !== -1 && feeIdx + 1 < norm.length) {
+      const nextH = norm[feeIdx + 1];
+      if (nextH.includes('paid') || nextH.includes('collect') || nextH.includes('status') || nextH === 'paid') {
+        paidIdx = feeIdx + 1;
+      }
+    }
+
+    monthCols[m.key] = feeIdx;
+    monthPaidCols[m.key] = paidIdx;
   });
 
   COL = {
@@ -150,6 +166,7 @@ function detectColumnsFromHeader(headerRow) {
     FOR: exact('for') !== -1 ? exact('for') : (exact('notes') !== -1 ? exact('notes') : (exact('complaint') !== -1 ? exact('complaint') : -1)),
     TRANSACTION_ID: exact('transaction id') !== -1 ? exact('transaction id') : (exact('txn id') !== -1 ? exact('txn id') : -1),
     MONTH_COLS: monthCols,
+    MONTH_PAID_COLS: monthPaidCols,
   };
 
   return COL;
@@ -327,49 +344,79 @@ function rowToCustomer(row, rowIndex) {
   let totalDueFromMonths = 0;
 
   MONTH_LIST.forEach((m, idx) => {
-    let colIdx = (COL.MONTH_COLS && COL.MONTH_COLS[m.key] !== undefined)
-      ? COL.MONTH_COLS[m.key]
-      : -1;
+    let feeColIdx = (COL.MONTH_COLS && COL.MONTH_COLS[m.key] !== undefined) ? COL.MONTH_COLS[m.key] : -1;
+    let paidColIdx = (COL.MONTH_PAID_COLS && COL.MONTH_PAID_COLS[m.key] !== undefined) ? COL.MONTH_PAID_COLS[m.key] : -1;
 
-    const rawVal = (colIdx !== -1 && row[colIdx] !== undefined) ? String(row[colIdx]).trim() : '';
-    let cellNum = 0;
-    const matchNum = rawVal.match(/^(\d+(\.\d+)?)/) || rawVal.match(/(\d+(\.\d+)?)/);
-    if (matchNum) {
-      cellNum = parseFloat(matchNum[1]) || 0;
+    const rawFeeVal = (feeColIdx !== -1 && row[feeColIdx] !== undefined) ? String(row[feeColIdx]).trim() : '';
+    const rawPaidVal = (paidColIdx !== -1 && paidColIdx !== feeColIdx && row[paidColIdx] !== undefined) ? String(row[paidColIdx]).trim() : '';
+
+    let feeNum = 0;
+    const matchFeeNum = rawFeeVal.match(/^(\d+(\.\d+)?)/) || rawFeeVal.match(/(\d+(\.\d+)?)/);
+    if (matchFeeNum) {
+      feeNum = parseFloat(matchFeeNum[1]) || 0;
     }
 
-    const lower = rawVal.toLowerCase();
-    const isUnpaidText = lower === 'unpaid' || lower.includes('unpaid') || lower === 'un-paid' || lower === 'due' || lower === 'pending';
+    let paidNum = 0;
+    const matchPaidNum = rawPaidVal.match(/^(\d+(\.\d+)?)/) || rawPaidVal.match(/(\d+(\.\d+)?)/);
+    if (matchPaidNum) {
+      paidNum = parseFloat(matchPaidNum[1]) || 0;
+    }
 
-    const hasPaymentKeyword = !isUnpaidText && (
-      lower.includes('cash') || 
-      lower.includes('gpay') || 
-      lower.includes('phonepe') || 
-      lower.includes('paytm') || 
-      lower.includes('upi') || 
-      lower.includes('bank') || 
-      /\bpaid\b/.test(lower) ||
-      lower.includes('(')
+    const lowerFee = rawFeeVal.toLowerCase();
+    const lowerPaid = rawPaidVal.toLowerCase();
+
+    const isUnpaidText = lowerFee === 'unpaid' || lowerFee.includes('unpaid') || lowerFee === 'un-paid' || lowerFee === 'due' || lowerFee === 'pending';
+
+    const paidHasPayment = (
+      lowerPaid.includes('cash') || lowerPaid.includes('gpay') || lowerPaid.includes('phonepe') ||
+      lowerPaid.includes('paytm') || lowerPaid.includes('upi') || lowerPaid.includes('bank') ||
+      /\bpaid\b/.test(lowerPaid) || lowerPaid.includes('(') || paidNum > 0
+    );
+
+    const feeHasPayment = !isUnpaidText && (
+      lowerFee.includes('cash') || lowerFee.includes('gpay') || lowerFee.includes('phonepe') ||
+      lowerFee.includes('paytm') || lowerFee.includes('upi') || lowerFee.includes('bank') ||
+      /\bpaid\b/.test(lowerFee) || lowerFee.includes('(')
     );
 
     let status = 'None';
     let monthAmount = 0;
     let paidAmount = 0;
 
-    if (rawVal === '' || rawVal === '0' || rawVal === '0.00' || rawVal === '-' || isUnpaidText || (cellNum === 0 && !hasPaymentKeyword)) {
-      status = 'None';
-      monthAmount = 0;
-      paidAmount = 0;
-    } else if (hasPaymentKeyword) {
-      status = 'Paid';
-      monthAmount = cellNum > 0 ? cellNum : monthlyFee;
-      paidAmount = monthAmount;
-    } else if (cellNum > 0) {
-      status = 'Unpaid';
-      monthAmount = cellNum;
-      paidAmount = 0;
-      unpaidMonthNames.push(m.name);
-      totalDueFromMonths += monthAmount;
+    if (paidColIdx !== -1 && paidColIdx !== feeColIdx) {
+      // ── DUAL COLUMN MODE ──
+      if (paidHasPayment || lowerPaid === 'paid') {
+        status = 'Paid';
+        monthAmount = feeNum > 0 ? feeNum : (paidNum > 0 ? paidNum : monthlyFee);
+        paidAmount = monthAmount;
+      } else if (feeNum > 0) {
+        status = 'Unpaid';
+        monthAmount = feeNum;
+        paidAmount = 0;
+        unpaidMonthNames.push(m.name);
+        totalDueFromMonths += monthAmount;
+      } else {
+        status = 'None';
+        monthAmount = 0;
+        paidAmount = 0;
+      }
+    } else {
+      // ── SINGLE COLUMN MODE ──
+      if (rawFeeVal === '' || rawFeeVal === '0' || rawFeeVal === '0.00' || rawFeeVal === '-' || isUnpaidText || (feeNum === 0 && !feeHasPayment)) {
+        status = 'None';
+        monthAmount = 0;
+        paidAmount = 0;
+      } else if (feeHasPayment) {
+        status = 'Paid';
+        monthAmount = feeNum > 0 ? feeNum : monthlyFee;
+        paidAmount = monthAmount;
+      } else if (feeNum > 0) {
+        status = 'Unpaid';
+        monthAmount = feeNum;
+        paidAmount = 0;
+        unpaidMonthNames.push(m.name);
+        totalDueFromMonths += monthAmount;
+      }
     }
 
     monthlyPayments.push({
@@ -379,7 +426,9 @@ function rowToCustomer(row, rowIndex) {
       amount: monthAmount,
       paidAmount: paidAmount,
       status: status,
-      details: rawVal || (status === 'Paid' ? 'Paid' : (status === 'Unpaid' ? `₹${monthAmount}` : '-')),
+      details: (paidColIdx !== -1 && paidColIdx !== feeColIdx && paidHasPayment)
+        ? rawPaidVal
+        : (rawFeeVal || (status === 'Paid' ? 'Paid' : (status === 'Unpaid' ? `₹${monthAmount}` : '-'))),
     });
   });
 
@@ -703,20 +752,24 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
       }
 
       const targetMonthIndex = MONTH_LIST.findIndex(m => m.key === targetMonthKey);
-      const monthColIdx = (COL.MONTH_COLS && COL.MONTH_COLS[targetMonthKey] !== undefined)
+      const feeColIdx = (COL.MONTH_COLS && COL.MONTH_COLS[targetMonthKey] !== undefined)
         ? COL.MONTH_COLS[targetMonthKey]
         : -1;
+      const paidColIdx = (COL.MONTH_PAID_COLS && COL.MONTH_PAID_COLS[targetMonthKey] !== undefined)
+        ? COL.MONTH_PAID_COLS[targetMonthKey]
+        : -1;
 
-      if (monthColIdx !== -1) {
-        const colLetter = colIndexToLetter(monthColIdx);
+      // Prefer writing to the Paid/Collected column if present; otherwise write to fee column
+      let writeColIdx = feeColIdx;
+      if (paidColIdx !== -1 && paidColIdx !== feeColIdx) {
+        writeColIdx = paidColIdx;
+      }
+
+      if (writeColIdx !== -1) {
+        const colLetter = colIndexToLetter(writeColIdx);
         
-        const existingMonthObj = current.monthlyPayments ? current.monthlyPayments.find(m => m.key === targetMonthKey) : null;
-        const existingCellText = (existingMonthObj && existingMonthObj.details && existingMonthObj.details !== 'Unpaid' && existingMonthObj.details !== 'Paid' && existingMonthObj.details !== 'Not Due')
-          ? existingMonthObj.details.trim()
-          : '';
-
-        const newEntry = `${paymentAmount} (${paymentMode} ${shortDate})`;
-        const updatedCellText = existingCellText ? `${existingCellText}, ${newEntry}` : newEntry;
+        // Clean single entry e.g. "300 (CASH 27/7)"
+        const updatedCellText = `${paymentAmount} (${paymentMode} ${shortDate})`;
 
         console.log(`📝 Writing month payment cell ${colLetter}${index}: "${updatedCellText}"`);
         await client.spreadsheets.values.update({
@@ -739,8 +792,8 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
                       sheetId: targetSheetId,
                       startRowIndex: index - 1,
                       endRowIndex: index,
-                      startColumnIndex: monthColIdx,
-                      endColumnIndex: monthColIdx + 1,
+                      startColumnIndex: writeColIdx,
+                      endColumnIndex: writeColIdx + 1,
                     },
                     cell: {
                       userEnteredFormat: {
