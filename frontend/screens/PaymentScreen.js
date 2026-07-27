@@ -24,14 +24,20 @@ import { enqueue, isNetworkError } from '../services/OfflineQueue';
 
 export default function PaymentScreen({ route, navigation }) {
   const customer = route.params?.customer || {};
+  const preselectMonth = route.params?.preselectMonth;
 
-  // Find first unpaid month key or default to current month
-  const firstUnpaidMonth = customer?.monthlyPayments?.find(m => m.status !== 'Paid');
-  const initialMonthKey = firstUnpaidMonth ? firstUnpaidMonth.key : 'Jul-26';
+  // Find preselected or first unpaid month key
+  const firstUnpaidMonth = customer?.monthlyPayments?.find(m => m.status === 'Unpaid');
+  const targetMonthObj = preselectMonth 
+    ? (customer?.monthlyPayments?.find(m => m.key === preselectMonth) || firstUnpaidMonth)
+    : firstUnpaidMonth;
+
+  const initialMonthKey = targetMonthObj ? targetMonthObj.key : (customer?.monthlyPayments?.[0]?.key || 'Jul-26');
+  const initialAmount = targetMonthObj?.amount ? String(targetMonthObj.amount) : (customer?.monthlyFee ? String(customer.monthlyFee) : '300');
 
   const [selectedMonthKey, setSelectedMonthKey] = useState(initialMonthKey);
   const [paymentMode, setPaymentMode] = useState(null); // 'CASH' | 'GPAY' | 'PHONEPE' | 'PAYTM'
-  const [amount, setAmount] = useState(firstUnpaidMonth ? String(firstUnpaidMonth.amount || customer?.monthlyFee || 300) : (customer?.monthlyFee ? String(customer.monthlyFee) : '300'));
+  const [amount, setAmount] = useState(initialAmount);
   const [discount, setDiscount] = useState('');
   const [transactionId, setTransactionId] = useState('');
   
@@ -203,14 +209,17 @@ export default function PaymentScreen({ route, navigation }) {
               {customer.monthlyPayments.map((m) => {
                 const isSelected = selectedMonthKey === m.key;
                 const isPaid = m.status === 'Paid';
+                const isUnpaid = m.status === 'Unpaid';
                 return (
                   <TouchableOpacity
                     key={m.key}
                     onPress={() => {
                       Vibration.vibrate(20);
                       setSelectedMonthKey(m.key);
-                      if (!isPaid) {
+                      if (isUnpaid) {
                         setAmount(String(m.amount || customer.monthlyFee || 300));
+                      } else if (m.amount > 0) {
+                        setAmount(String(m.amount));
                       }
                     }}
                     style={{
@@ -218,18 +227,18 @@ export default function PaymentScreen({ route, navigation }) {
                       paddingVertical: 8,
                       borderRadius: 8,
                       borderWidth: 1.5,
-                      borderColor: isSelected ? '#2563EB' : (isPaid ? '#059669' : '#CBD5E1'),
-                      backgroundColor: isSelected ? '#EFF6FF' : (isPaid ? '#F0FDF4' : '#FFFFFF'),
+                      borderColor: isSelected ? '#2563EB' : (isPaid ? '#059669' : (isUnpaid ? '#EF4444' : '#CBD5E1')),
+                      backgroundColor: isSelected ? '#EFF6FF' : (isPaid ? '#F0FDF4' : (isUnpaid ? '#FEF2F2' : '#FFFFFF')),
                       marginRight: 8,
                       alignItems: 'center',
                       minWidth: 85,
                     }}
                   >
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: isSelected ? '#1E40AF' : (isPaid ? '#047857' : '#334155') }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: isSelected ? '#1E40AF' : (isPaid ? '#047857' : (isUnpaid ? '#B91C1C' : '#334155')) }}>
                       {m.short}
                     </Text>
-                    <Text style={{ fontSize: 10, color: isPaid ? '#059669' : '#DC2626', marginTop: 2, fontWeight: '600' }}>
-                      {isPaid ? '✓ Paid' : `₹${m.amount}`}
+                    <Text style={{ fontSize: 10, color: isPaid ? '#059669' : (isUnpaid ? '#DC2626' : '#94A3B8'), marginTop: 2, fontWeight: '600' }}>
+                      {isPaid ? '✓ Paid' : (isUnpaid ? `₹${m.amount}` : '-')}
                     </Text>
                   </TouchableOpacity>
                 );

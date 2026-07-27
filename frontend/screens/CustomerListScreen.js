@@ -288,7 +288,7 @@ export default function CustomerListScreen({ navigation }) {
             )}
           </View>
           <Text style={styles.rowSub} numberOfLines={1}>
-            Cust #: {item.customerNo || item.ipAddress || '—'}  •  STB: {item.serialNumber || '—'}
+            {item.boxNo ? `Box #${item.boxNo}  •  ` : ''}Cust #: {item.customerNo || item.ipAddress || '—'}  •  STB: {item.serialNumber || '—'}
           </Text>
           <Text style={styles.rowSub} numberOfLines={1}>
             Ph: {item.mobile || '—'}  •  Expiry: {item.expiryDate || item.date1 || '—'}
@@ -397,7 +397,7 @@ export default function CustomerListScreen({ navigation }) {
             <Text style={styles.searchIcon}>🔍</Text>
             <TextInput
               style={styles.searchInput}
-              placeholder="Search name, mobile, or IP..."
+              placeholder="Search name, mobile, box #, or IP..."
               placeholderTextColor="#94A3B8"
               value={query}
               onChangeText={setQuery}

@@ -32,6 +32,7 @@ const {
   requestLocationUnlock,
   getUnlockRequests,
   approveLocationUnlock,
+  updateCustomerProfile,
 } = require('./sheets');
 
 const app = express();
@@ -428,6 +429,27 @@ app.post('/api/customers/:rowIndex/complaint', async (req, res) => {
   } catch (error) {
     console.error('Complaint error:', error.message);
     res.status(500).json({ error: 'Failed to register complaint', details: error.message });
+  }
+});
+
+/**
+ * PUT /api/customers/:rowIndex/profile — Update Subscriber Name, Mobile Number, or Box Number (Editable by all profiles)
+ */
+app.put('/api/customers/:rowIndex/profile', async (req, res) => {
+  try {
+    const rowIndex = parseInt(req.params.rowIndex, 10);
+    const { username, mobile, boxNo } = req.body;
+
+    if (isNaN(rowIndex)) {
+      return res.status(400).json({ error: 'Invalid row index' });
+    }
+
+    const updatedCustomer = await updateCustomerProfile(rowIndex, { username, mobile, boxNo });
+    invalidateCache();
+    res.json({ message: 'Profile updated successfully', customer: updatedCustomer });
+  } catch (error) {
+    console.error('Update profile error:', error.message);
+    res.status(500).json({ error: 'Failed to update profile', details: error.message });
   }
 });
 

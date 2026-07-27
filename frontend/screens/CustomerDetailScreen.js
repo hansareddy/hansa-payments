@@ -18,7 +18,7 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
-import { registerComplaint, searchCustomers, updateSTBLocation, requestLocationUnlock, approveLocationUnlock } from '../services/api';
+import { registerComplaint, searchCustomers, updateSTBLocation, requestLocationUnlock, approveLocationUnlock, updateCustomerProfile } from '../services/api';
 import { useAuth } from '../services/AuthContext';
 import STBMapView from '../components/STBMapView';
 
@@ -48,6 +48,56 @@ export default function CustomerDetailScreen({ route, navigation }) {
   const [complaintText, setComplaintText] = useState('');
   const [isUrgent, setIsUrgent] = useState(false);
   const [savingComplaint, setSavingComplaint] = useState(false);
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editMobile, setEditMobile] = useState('');
+  const [editBoxNo, setEditBoxNo] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  const handleOpenEditModal = () => {
+    Vibration.vibrate(20);
+    setEditName(currentCustomer.username || '');
+    setEditMobile(currentCustomer.mobile || '');
+    setEditBoxNo(currentCustomer.boxNo || '');
+    setShowEditModal(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editName.trim()) {
+      Alert.alert('Validation Error', 'Subscriber name cannot be empty.');
+      return;
+    }
+
+    setSavingProfile(true);
+    Vibration.vibrate(20);
+
+    try {
+      const res = await updateCustomerProfile(currentCustomer.rowIndex, {
+        username: editName.trim(),
+        mobile: editMobile.trim(),
+        boxNo: editBoxNo.trim(),
+      });
+
+      if (res && res.customer) {
+        setCurrentCustomer(res.customer);
+      } else {
+        setCurrentCustomer(prev => ({
+          ...prev,
+          username: editName.trim(),
+          mobile: editMobile.trim(),
+          boxNo: editBoxNo.trim(),
+        }));
+      }
+
+      setShowEditModal(false);
+      Alert.alert('Success', 'Profile details updated successfully!');
+    } catch (err) {
+      Alert.alert('Update Failed', err.message);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -255,29 +305,20 @@ export default function CustomerDetailScreen({ route, navigation }) {
     : null;
 
   if (!displayPayments || displayPayments.length === 0) {
-    displayPayments = DEFAULT_12_MONTHS.map((m, idx) => {
-      let status = 'Unpaid';
-      let details = 'Unpaid';
-      if (m.key === 'Apr-26' && currentCustomer.date2) {
-        status = 'Paid';
-        details = currentCustomer.date2;
-      } else if (idx < 6 && (currentCustomer.bank > 0 || currentCustomer.cash > 0)) {
-        status = 'Paid';
-        details = 'Paid';
-      }
+    displayPayments = DEFAULT_12_MONTHS.map((m) => {
       return {
         key: m.key,
         name: m.name,
         short: m.short,
-        amount: displayFeeRate,
-        status,
-        details,
+        amount: 0,
+        status: 'None',
+        details: '-',
       };
     });
   }
 
   const paidCount = displayPayments.filter(m => m.status === 'Paid').length;
-  const unpaidCount = displayPayments.filter(m => m.status !== 'Paid').length;
+  const unpaidCount = displayPayments.filter(m => m.status === 'Unpaid').length;
 
   let calcCash = currentCustomer.cash || 0;
   let calcBank = currentCustomer.bank || 0;
@@ -357,7 +398,15 @@ export default function CustomerDetailScreen({ route, navigation }) {
 
         {/* Subscriber & Hardware Information */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Subscriber & Hardware Information</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={styles.sectionTitle}>Subscriber & Hardware Information</Text>
+            <TouchableOpacity
+              onPress={handleOpenEditModal}
+              style={{ backgroundColor: '#EFF6FF', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: '#BFDBFE' }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#1D4ED8' }}>✏️ Edit Profile</Text>
+            </TouchableOpacity>
+          </View>
           
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Subscriber Name</Text>
@@ -368,6 +417,22 @@ export default function CustomerDetailScreen({ route, navigation }) {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Mobile Number</Text>
             <Text style={styles.infoValue}>{currentCustomer.mobile || '—'}</Text>
+          </View>
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>STB Box Number (#)</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {currentCustomer.boxNo ? (
+                <View style={{ backgroundColor: '#EEF2FF', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#C7D2FE' }}>
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#3730A3' }}>
+                    📦 Box #{currentCustomer.boxNo}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={[styles.infoValue, { color: '#94A3B8' }]}>Not assigned</Text>
+              )}
+            </View>
           </View>
           <View style={styles.divider} />
           
@@ -553,35 +618,41 @@ export default function CustomerDetailScreen({ route, navigation }) {
 
             {displayPayments.map((m, i) => {
               const isPaid = m.status === 'Paid';
+              const isUnpaid = m.status === 'Unpaid';
+              const isNotDue = !isPaid && !isUnpaid;
+
               return (
-                <View key={m.key || i} style={[styles.monthTableRow, i % 2 === 1 && { backgroundColor: '#F8FAFC' }]}>
-                  <Text style={[styles.monthTableCell, { flex: 1.6, fontWeight: '600', color: '#1E293B' }]}>{m.name}</Text>
-                  <Text style={[styles.monthTableCell, { flex: 1, color: '#475569', fontWeight: '500' }]}>₹{m.amount || displayFeeRate}</Text>
+                <View key={m.key || i} style={[styles.monthTableRow, i % 2 === 1 && { backgroundColor: '#F8FAFC' }, isNotDue && { opacity: 0.55 }]}>
+                  <Text style={[styles.monthTableCell, { flex: 1.6, fontWeight: '600', color: isNotDue ? '#64748B' : '#1E293B' }]}>{m.name}</Text>
+                  <Text style={[styles.monthTableCell, { flex: 1, color: isNotDue ? '#CBD5E1' : '#475569', fontWeight: '500' }]}>
+                    {isNotDue ? '-' : `₹${m.amount || displayFeeRate}`}
+                  </Text>
                   <View style={{ flex: 1.3, alignItems: 'flex-start' }}>
-                    <View style={{
-                      paddingHorizontal: 8,
-                      paddingVertical: 3,
-                      borderRadius: 12,
-                      backgroundColor: isPaid ? '#D1FAE5' : '#FEE2E2'
-                    }}>
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: isPaid ? '#047857' : '#B91C1C' }}>
-                        {isPaid ? '✅ Paid' : '❌ Unpaid'}
-                      </Text>
-                    </View>
+                    {isPaid ? (
+                      <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, backgroundColor: '#D1FAE5' }}>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#047857' }}>✓ Paid</Text>
+                      </View>
+                    ) : isUnpaid ? (
+                      <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, backgroundColor: '#FEE2E2' }}>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#B91C1C' }}>✕ Unpaid</Text>
+                      </View>
+                    ) : (
+                      <Text style={{ fontSize: 11, color: '#CBD5E1', fontWeight: '500' }}>-</Text>
+                    )}
                   </View>
                   <View style={{ flex: 2.1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={[styles.monthTableCell, { fontSize: 11, color: isPaid ? '#059669' : '#94A3B8', flex: 1 }]} numberOfLines={1}>
-                      {m.details || (isPaid ? 'Paid' : 'Unpaid')}
+                    <Text style={[styles.monthTableCell, { fontSize: 11, color: isPaid ? '#059669' : (isUnpaid ? '#B91C1C' : '#CBD5E1'), flex: 1 }]} numberOfLines={1}>
+                      {isNotDue ? '-' : (m.details || (isPaid ? 'Paid' : `₹${m.amount}`)) }
                     </Text>
-                    {!isPaid && (
+                    {isUnpaid && (
                       <TouchableOpacity
                         onPress={() => {
                           Vibration.vibrate(30);
-                          navigation.navigate('Payment', { customer: currentCustomer });
+                          navigation.navigate('Payment', { customer: currentCustomer, preselectMonth: m.key });
                         }}
-                        style={{ backgroundColor: '#2563EB', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}
+                        style={{ backgroundColor: '#2563EB', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}
                       >
-                        <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}>PAY</Text>
+                        <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '800' }}>PAY</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -701,6 +772,70 @@ export default function CustomerDetailScreen({ route, navigation }) {
                   <ActivityIndicator color="#FFF" size="small" />
                 ) : (
                   <Text style={styles.modalSubmitText}>Save Note</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* EDIT PROFILE MODAL */}
+      <Modal visible={showEditModal} transparent={true} animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Customer Profile</Text>
+            <Text style={{ fontSize: 12, color: '#64748B', marginBottom: 14 }}>
+              Update subscriber details. Editable by all user profiles.
+            </Text>
+
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#334155', marginBottom: 4 }}>Subscriber Name</Text>
+            <TextInput
+              style={[styles.complaintInput, { height: 44, marginBottom: 12 }]}
+              placeholder="Subscriber Name"
+              placeholderTextColor="#94A3B8"
+              value={editName}
+              onChangeText={setEditName}
+            />
+
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#334155', marginBottom: 4 }}>Mobile Number</Text>
+            <TextInput
+              style={[styles.complaintInput, { height: 44, marginBottom: 12 }]}
+              placeholder="Mobile Number (e.g. 9876543210)"
+              placeholderTextColor="#94A3B8"
+              keyboardType="phone-pad"
+              value={editMobile}
+              onChangeText={setEditMobile}
+            />
+
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#334155', marginBottom: 4 }}>STB Box Number (2-3 digits)</Text>
+            <TextInput
+              style={[styles.complaintInput, { height: 44, marginBottom: 16 }]}
+              placeholder="Box Number (e.g. 12, 105, 42)"
+              placeholderTextColor="#94A3B8"
+              keyboardType="number-pad"
+              maxLength={10}
+              value={editBoxNo}
+              onChangeText={setEditBoxNo}
+            />
+
+            <View style={styles.modalActionRow}>
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setShowEditModal(false)}
+                disabled={savingProfile}
+              >
+                <Text style={styles.modalCloseText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalSubmitBtn}
+                onPress={handleSaveProfile}
+                disabled={savingProfile}
+              >
+                {savingProfile ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <Text style={styles.modalSubmitText}>Save Changes</Text>
                 )}
               </TouchableOpacity>
             </View>

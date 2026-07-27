@@ -82,6 +82,7 @@ function detectColumnsFromHeader(headerRow) {
     STATUS: exact('status') !== -1 ? exact('status') : -1,
     BASE_PACK: exact('base pack') !== -1 ? exact('base pack') : -1,
     EXPIRY_DATE: exact('expiry date') !== -1 ? exact('expiry date') : -1,
+    BOX_NO: exact('box no') !== -1 ? exact('box no') : (exact('box #') !== -1 ? exact('box #') : (exact('stb no') !== -1 ? exact('stb no') : find(['box', 'box_no', 'stb_no'], -1))),
     // Legacy / Billing fields
     IP_ADDRESS: find(['ipaddress', 'ip_address', 'ip'], exact('location') !== -1 ? exact('location') : 2),
     RENEW: exact('renew') !== -1 ? exact('renew') : (exact('base pack') !== -1 ? exact('base pack') : 3),
@@ -98,6 +99,9 @@ function detectColumnsFromHeader(headerRow) {
     MONTH_COLS: monthCols,
   };
 }
+
+// In-memory store for STB Box Numbers (2-3 digit identification codes)
+const stbBoxNoStore = new Map(); // rowIndex -> boxNo
 
 // Cached resolved sheet tab name (detected once, reused for all reads+writes)
 let _resolvedSheetName = null;
@@ -245,6 +249,8 @@ let paymentTransactionLogs = {};
 function rowToCustomer(row, rowIndex) {
   const username = COL.USERNAME !== -1 ? (row[COL.USERNAME] || '').trim() : '';
   const mobile = COL.MOBILE !== -1 ? (row[COL.MOBILE] || '').trim() : '';
+  const boxNoFromSheet = COL.BOX_NO !== undefined && COL.BOX_NO !== -1 ? (row[COL.BOX_NO] || '').trim() : '';
+  const boxNo = boxNoFromSheet || stbBoxNoStore.get(rowIndex) || '';
   const location = COL.LOCATION !== -1 ? (row[COL.LOCATION] || '').trim() : '';
   const customerNo = COL.CUSTOMER_NO !== -1 ? (row[COL.CUSTOMER_NO] || '').trim() : '';
   const serialNumber = COL.SERIAL_NO !== -1 ? (row[COL.SERIAL_NO] || '').trim() : '';
@@ -270,45 +276,51 @@ function rowToCustomer(row, rowIndex) {
       ? COL.MONTH_COLS[m.key]
       : (8 + idx);
 
-    const cellVal = (row[colIdx] !== undefined) ? String(row[colIdx]).trim() : '';
-    
-    let totalPaidInMonth = 0;
-    if (cellVal !== '') {
-      const entries = cellVal.split(',');
-      entries.forEach(entry => {
-        const eStr = entry.trim();
-        if (eStr) {
-          const match = eStr.match(/^(\d+(\.\d+)?)/) || eStr.match(/(\d+(\.\d+)?)\s*(?=\()/);
-          if (match) {
-            totalPaidInMonth += parseFloat(match[1]) || 0;
-          } else {
-            const num = parseFloat(eStr);
-            if (!isNaN(num)) totalPaidInMonth += num;
-          }
-        }
-      });
+    const rawVal = (row[colIdx] !== undefined) ? String(row[colIdx]).trim() : '';
+    let cellNum = 0;
+    const matchNum = rawVal.match(/^(\d+(\.\d+)?)/) || rawVal.match(/(\d+(\.\d+)?)/);
+    if (matchNum) {
+      cellNum = parseFloat(matchNum[1]) || 0;
     }
 
-    const isPaid = cellVal !== '' && 
-                   !cellVal.toLowerCase().includes('unpaid') && 
-                   !cellVal.toLowerCase().includes('due') &&
-                   (totalPaidInMonth > 0 || cellVal.toLowerCase().includes('paid'));
+    const lower = rawVal.toLowerCase();
+    const hasPaymentKeyword = lower.includes('cash') || 
+                              lower.includes('gpay') || 
+                              lower.includes('phonepe') || 
+                              lower.includes('paytm') || 
+                              lower.includes('upi') || 
+                              lower.includes('bank') || 
+                              lower.includes('paid') ||
+                              lower.includes('(');
 
-    const isPartial = !isPaid && totalPaidInMonth > 0;
+    let status = 'None';
+    let monthAmount = 0;
+    let paidAmount = 0;
 
-    if (!isPaid) {
+    if (rawVal === '' || rawVal === '0' || rawVal === '0.00' || rawVal === '-' || (cellNum === 0 && !hasPaymentKeyword)) {
+      status = 'None';
+      monthAmount = 0;
+      paidAmount = 0;
+    } else if (hasPaymentKeyword) {
+      status = 'Paid';
+      monthAmount = cellNum > 0 ? cellNum : monthlyFee;
+      paidAmount = monthAmount;
+    } else if (cellNum > 0) {
+      status = 'Unpaid';
+      monthAmount = cellNum;
+      paidAmount = 0;
       unpaidMonthNames.push(m.name);
-      totalDueFromMonths += Math.max(0, monthlyFee - totalPaidInMonth);
+      totalDueFromMonths += monthAmount;
     }
 
     monthlyPayments.push({
       key: m.key,
       name: m.name,
       short: m.short,
-      amount: monthlyFee,
-      paidAmount: totalPaidInMonth,
-      status: isPaid ? 'Paid' : (isPartial ? 'Partial' : 'Unpaid'),
-      details: cellVal || (isPaid ? 'Paid' : 'Unpaid'),
+      amount: monthAmount > 0 ? monthAmount : monthlyFee,
+      paidAmount: paidAmount,
+      status: status,
+      details: rawVal || (status === 'Paid' ? 'Paid' : (status === 'Unpaid' ? `₹${monthAmount}` : 'Not Due')),
     });
   });
 
@@ -373,6 +385,7 @@ function rowToCustomer(row, rowIndex) {
     rowIndex,
     username,
     mobile,
+    boxNo,
     ipAddress: customerNo || location || (COL.IP_ADDRESS !== -1 ? (row[COL.IP_ADDRESS] || '').trim() : ''),
     customerNo,
     serialNumber,
@@ -458,6 +471,31 @@ async function resolveSheetName() {
   return _resolvedSheetName;
 }
 
+let _resolvedSheetId = null;
+
+async function resolveSheetId() {
+  if (_resolvedSheetId !== null && _resolvedSheetId !== undefined) return _resolvedSheetId;
+  try {
+    const client = await getClient();
+    const spreadsheetId = getSpreadsheetId();
+    const sheetName = await resolveSheetName();
+    const meta = await client.spreadsheets.get({ spreadsheetId });
+    if (meta.data.sheets && meta.data.sheets.length > 0) {
+      const match = meta.data.sheets.find(s => s.properties.title === sheetName);
+      if (match && match.properties.sheetId !== undefined) {
+        _resolvedSheetId = match.properties.sheetId;
+        return _resolvedSheetId;
+      }
+      _resolvedSheetId = meta.data.sheets[0].properties.sheetId;
+      return _resolvedSheetId;
+    }
+  } catch (err) {
+    console.warn('⚠️ Could not resolve sheetId:', err.message);
+  }
+  _resolvedSheetId = 0;
+  return 0;
+}
+
 async function getAllRows() {
   if (!isGoogleConfigured()) return null;
   const client = await getClient();
@@ -510,6 +548,7 @@ async function searchCustomers(query) {
   return all.filter(item => 
     (item.username && item.username.toLowerCase().includes(searchTerm)) ||
     (item.mobile && item.mobile.toLowerCase().includes(searchTerm)) ||
+    (item.boxNo && item.boxNo.toLowerCase().includes(searchTerm)) ||
     (item.ipAddress && item.ipAddress.toLowerCase().includes(searchTerm)) ||
     (item.customerNo && item.customerNo.toLowerCase().includes(searchTerm)) ||
     (item.serialNumber && item.serialNumber.toLowerCase().includes(searchTerm)) ||
@@ -586,7 +625,7 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
         const colLetter = colIndexToLetter(monthColIdx);
         
         const existingMonthObj = current.monthlyPayments ? current.monthlyPayments.find(m => m.key === targetMonthKey) : null;
-        const existingCellText = (existingMonthObj && existingMonthObj.details && existingMonthObj.details !== 'Unpaid' && existingMonthObj.details !== 'Paid')
+        const existingCellText = (existingMonthObj && existingMonthObj.details && existingMonthObj.details !== 'Unpaid' && existingMonthObj.details !== 'Paid' && existingMonthObj.details !== 'Not Due')
           ? existingMonthObj.details.trim()
           : '';
 
@@ -600,6 +639,42 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
           valueInputOption: 'USER_ENTERED',
           requestBody: { values: [[updatedCellText]] },
         });
+
+        // Change target month cell background color to Green in Google Sheets
+        try {
+          const targetSheetId = await resolveSheetId();
+          await client.spreadsheets.batchUpdate({
+            spreadsheetId,
+            requestBody: {
+              requests: [
+                {
+                  repeatCell: {
+                    range: {
+                      sheetId: targetSheetId,
+                      startRowIndex: index - 1,
+                      endRowIndex: index,
+                      startColumnIndex: monthColIdx,
+                      endColumnIndex: monthColIdx + 1,
+                    },
+                    cell: {
+                      userEnteredFormat: {
+                        backgroundColor: {
+                          red: 0.819,   // Light green #D1FAE5
+                          green: 0.98,
+                          blue: 0.898,
+                        },
+                      },
+                    },
+                    fields: 'userEnteredFormat.backgroundColor',
+                  },
+                },
+              ],
+            },
+          });
+          console.log(`🎨 Cell ${colLetter}${index} background color updated to GREEN in Google Sheets.`);
+        } catch (colorErr) {
+          console.warn('⚠️ Could not update cell color on Google Sheet:', colorErr.message);
+        }
       }
 
       // 2. Write Transaction ID (Column N or TRANSACTION_ID)
@@ -878,6 +953,79 @@ async function approveLocationUnlock(requestId) {
   return await getCustomerByRow(index);
 }
 
+/**
+ * Update Customer Profile (Name, Mobile, Box Number).
+ * Editable by all user profiles.
+ */
+async function updateCustomerProfile(rowIndex, { username, mobile, boxNo }) {
+  const index = parseInt(rowIndex, 10);
+  if (isNaN(index)) throw new Error('Invalid row index');
+
+  const current = await getCustomerByRow(index);
+  if (!current) throw new Error(`Customer not found for row ${index}`);
+
+  const targetIndex = current.rowIndex;
+
+  if (boxNo !== undefined) {
+    stbBoxNoStore.set(targetIndex, String(boxNo).trim());
+  }
+
+  if (isGoogleConfigured()) {
+    try {
+      const client = await getClient();
+      const sheetName = await resolveSheetName();
+      const spreadsheetId = getSpreadsheetId();
+
+      // 1. Update Username if column exists & provided
+      if (username !== undefined && username.trim() && COL.USERNAME !== -1) {
+        const colLetter = colIndexToLetter(COL.USERNAME);
+        await client.spreadsheets.values.update({
+          spreadsheetId,
+          range: `'${sheetName}'!${colLetter}${targetIndex}`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [[username.trim()]] },
+        });
+      }
+
+      // 2. Update Mobile if column exists & provided
+      if (mobile !== undefined && COL.MOBILE !== -1) {
+        const colLetter = colIndexToLetter(COL.MOBILE);
+        await client.spreadsheets.values.update({
+          spreadsheetId,
+          range: `'${sheetName}'!${colLetter}${targetIndex}`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [[mobile.trim()]] },
+        });
+      }
+
+      // 3. Update Box No if column exists
+      if (boxNo !== undefined && COL.BOX_NO !== undefined && COL.BOX_NO !== -1) {
+        const colLetter = colIndexToLetter(COL.BOX_NO);
+        await client.spreadsheets.values.update({
+          spreadsheetId,
+          range: `'${sheetName}'!${colLetter}${targetIndex}`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [[boxNo.trim()]] },
+        });
+      }
+
+      console.log(`✅ Profile updated for Row ${targetIndex}: Name="${username || current.username}", Mobile="${mobile || current.mobile}", BoxNo="${boxNo || ''}"`);
+    } catch (err) {
+      console.warn('⚠️ Could not update profile in Google Sheet:', err.message);
+    }
+  }
+
+  // Update local ledger if fallback
+  const localCust = localLedger.find(c => c.rowIndex === targetIndex);
+  if (localCust) {
+    if (username) localCust.username = username.trim();
+    if (mobile) localCust.mobile = mobile.trim();
+    if (boxNo) localCust.boxNo = boxNo.trim();
+  }
+
+  return await getCustomerByRow(targetIndex);
+}
+
 module.exports = {
   getAllCustomers,
   searchCustomers,
@@ -889,6 +1037,7 @@ module.exports = {
   requestLocationUnlock,
   getUnlockRequests,
   approveLocationUnlock,
+  updateCustomerProfile,
   getAllRows,
   detectColumnsFromHeader,
   rowToCustomer,

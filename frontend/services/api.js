@@ -214,6 +214,10 @@ export async function approveLocationUnlock(requestId) {
   return apiPost('/api/stb/approve-unlock', { requestId });
 }
 
+export async function updateCustomerProfile(rowIndex, { username, mobile, boxNo }) {
+  return apiPut(`/api/customers/${rowIndex}/profile`, { username, mobile, boxNo });
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function isNetworkError(error) {
