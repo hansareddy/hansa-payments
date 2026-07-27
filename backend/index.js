@@ -29,6 +29,7 @@ const {
   addCustomer,
   updateComplaint,
   updateSTBLocation,
+  clearSTBLocation,
   requestLocationUnlock,
   getUnlockRequests,
   approveLocationUnlock,
@@ -490,6 +491,25 @@ app.put('/api/stb/location', async (req, res) => {
     res.json({ message: 'STB Geolocation saved and locked successfully', customer: updatedCustomer });
   } catch (error) {
     console.error('STB Location error:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/stb/clear-location — Clear STB Geolocation coordinates (Admin & Staff)
+ */
+app.post('/api/stb/clear-location', async (req, res) => {
+  try {
+    const { rowIndex } = req.body;
+    if (!rowIndex) {
+      return res.status(400).json({ error: 'Missing required field: rowIndex' });
+    }
+
+    const updatedCustomer = await clearSTBLocation(rowIndex);
+    invalidateCache();
+    res.json({ message: 'STB Geolocation cleared successfully', customer: updatedCustomer });
+  } catch (error) {
+    console.error('Clear STB Location error:', error.message);
     res.status(400).json({ error: error.message });
   }
 });

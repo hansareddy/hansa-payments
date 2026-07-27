@@ -1025,6 +1025,47 @@ async function updateSTBLocation(rowIndex, lat, lng, loggedBy, userRole) {
 }
 
 /**
+ * Clear STB Geolocation coordinates for a customer.
+ */
+async function clearSTBLocation(rowIndex) {
+  const index = parseInt(rowIndex, 10);
+  const current = await getCustomerByRow(index);
+  if (!current) throw new Error(`Customer not found for row ${index}`);
+
+  const targetIndex = current.rowIndex;
+  const userKey = (current.username || '').toLowerCase().trim();
+
+  if (userKey) {
+    stbLocationStore.delete(userKey);
+  }
+  saveSTBLocations();
+
+  if (isGoogleConfigured()) {
+    try {
+      const client = await getClient();
+      const sheetName = await resolveSheetName();
+      const spreadsheetId = getSpreadsheetId();
+
+      const locColIdx = (COL.LOCATION !== undefined && COL.LOCATION !== -1) ? COL.LOCATION : 2; // Column C
+      const colLetter = colIndexToLetter(locColIdx);
+
+      await client.spreadsheets.values.update({
+        spreadsheetId,
+        range: `'${sheetName}'!${colLetter}${targetIndex}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [['']] },
+      });
+      console.log(`✅ Cleared location in Google Sheet cell ${colLetter}${targetIndex}`);
+    } catch (err) {
+      console.warn('⚠️ Could not clear location in Google Sheet:', err.message);
+    }
+  }
+
+  invalidateSheetCache();
+  return await getCustomerByRow(targetIndex, current.username);
+}
+
+/**
  * Submit a request to Admin to unlock STB location coordinates.
  */
 async function requestLocationUnlock(rowIndex, username, requestedBy, reason) {
@@ -1164,6 +1205,7 @@ module.exports = {
   addCustomer,
   updateComplaint,
   updateSTBLocation,
+  clearSTBLocation,
   requestLocationUnlock,
   getUnlockRequests,
   approveLocationUnlock,

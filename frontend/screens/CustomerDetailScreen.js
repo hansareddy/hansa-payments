@@ -18,7 +18,7 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
-import { registerComplaint, searchCustomers, updateSTBLocation, requestLocationUnlock, approveLocationUnlock, updateCustomerProfile } from '../services/api';
+import { registerComplaint, searchCustomers, updateSTBLocation, clearSTBLocation, requestLocationUnlock, approveLocationUnlock, updateCustomerProfile } from '../services/api';
 import { useAuth } from '../services/AuthContext';
 import STBMapView from '../components/STBMapView';
 
@@ -184,7 +184,7 @@ export default function CustomerDetailScreen({ route, navigation }) {
       try {
         let updatedCust = null;
         try {
-          const res = await updateSTBLocation(currentCustomer.rowIndex, lat, lng, 'Field Tech');
+          const res = await updateSTBLocation(currentCustomer.rowIndex, lat, lng, user?.name || 'Field Tech');
           if (res && res.customer) updatedCust = res.customer;
         } catch (apiErr) {
           console.warn('STB location API warning:', apiErr.message);
@@ -196,17 +196,14 @@ export default function CustomerDetailScreen({ route, navigation }) {
           longitude: lng,
           location: `${lat.toFixed(6)},${lng.toFixed(6)} (LOCKED)`,
           locationLocked: true,
-          locationLoggedBy: 'Field Tech',
+          locationLoggedBy: user?.name || 'Field Tech',
           locationTimestamp: new Date().toISOString(),
           ...(updatedCust || {}),
         }));
 
-        const successMsg = `📍 STB Location Re-Locked: Coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)}) updated and locked on-site.`;
-        if (Platform.OS === 'web') {
-          alert(successMsg);
-        } else {
-          Alert.alert('📍 STB Location Locked', successMsg);
-        }
+        const successMsg = `📍 STB Location Re-Locked: Coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)}) updated and locked.`;
+        if (Platform.OS === 'web') alert(successMsg);
+        else Alert.alert('📍 STB Location Locked', successMsg);
       } catch (err) {
         if (Platform.OS === 'web') alert(`Location Update Error: ${err.message}`);
         else Alert.alert('Location Update Error', err.message);
@@ -216,41 +213,58 @@ export default function CustomerDetailScreen({ route, navigation }) {
     };
 
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
-      let handedOver = false;
-      const timeoutTimer = setTimeout(() => {
-        if (!handedOver) {
-          handedOver = true;
-          saveCoords(16.5062 + (Math.random() * 0.01), 80.6480 + (Math.random() * 0.01));
-        }
-      }, 4000);
-
-      try {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            if (!handedOver) {
-              handedOver = true;
-              clearTimeout(timeoutTimer);
-              saveCoords(pos.coords.latitude, pos.coords.longitude);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          saveCoords(pos.coords.latitude, pos.coords.longitude);
+        },
+        (_err) => {
+          setLoggingLocation(false);
+          const manual = prompt('GPS Position Unavailable. Enter Latitude, Longitude (e.g. 16.51234, 80.62345):');
+          if (manual && manual.includes(',')) {
+            const parts = manual.split(',');
+            const pLat = parseFloat(parts[0]);
+            const pLng = parseFloat(parts[1]);
+            if (!isNaN(pLat) && !isNaN(pLng)) {
+              saveCoords(pLat, pLng);
+              return;
             }
-          },
-          (_err) => {
-            if (!handedOver) {
-              handedOver = true;
-              clearTimeout(timeoutTimer);
-              saveCoords(16.5062 + (Math.random() * 0.01), 80.6480 + (Math.random() * 0.01));
-            }
-          },
-          { enableHighAccuracy: false, timeout: 3500 }
-        );
-      } catch (_e) {
-        if (!handedOver) {
-          handedOver = true;
-          clearTimeout(timeoutTimer);
-          saveCoords(16.5062 + (Math.random() * 0.01), 80.6480 + (Math.random() * 0.01));
+          }
+          alert('GPS permission was denied or unavailable. Please enable device location permissions.');
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      );
+    } else {
+      setLoggingLocation(false);
+      const manual = prompt('Enter STB Latitude, Longitude (e.g. 16.51234, 80.62345):');
+      if (manual && manual.includes(',')) {
+        const parts = manual.split(',');
+        const pLat = parseFloat(parts[0]);
+        const pLng = parseFloat(parts[1]);
+        if (!isNaN(pLat) && !isNaN(pLng)) {
+          saveCoords(pLat, pLng);
         }
       }
-    } else {
-      saveCoords(16.5062 + (Math.random() * 0.01), 80.6480 + (Math.random() * 0.01));
+    }
+  };
+
+  const handleResetSTBLocation = async () => {
+    if (!confirm('Are you sure you want to clear/reset the logged GPS location for this STB account?')) return;
+    setLoggingLocation(true);
+    try {
+      const res = await clearSTBLocation(currentCustomer.rowIndex);
+      setCurrentCustomer(prev => ({
+        ...prev,
+        latitude: null,
+        longitude: null,
+        location: '',
+        locationLocked: false,
+        ...(res?.customer || {}),
+      }));
+      alert('STB Location cleared successfully!');
+    } catch (e) {
+      alert(`Error clearing location: ${e.message}`);
+    } finally {
+      setLoggingLocation(false);
     }
   };
 
@@ -495,9 +509,10 @@ export default function CustomerDetailScreen({ route, navigation }) {
         />
 
         <View style={{ marginBottom: 16 }}>
-          {!currentCustomer.locationLocked ? (
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
             <TouchableOpacity
               style={{
+                flex: 2,
                 backgroundColor: '#059669',
                 paddingVertical: 12,
                 borderRadius: 10,
@@ -515,58 +530,35 @@ export default function CustomerDetailScreen({ route, navigation }) {
               ) : (
                 <>
                   <Text style={{ fontSize: 16 }}>📍</Text>
-                  <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
-                    Log & Lock STB Location On-Site
+                  <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
+                    {currentCustomer.locationLocked ? 'Re-Lock / Update GPS Location' : 'Log & Lock STB Location On-Site'}
                   </Text>
                 </>
               )}
             </TouchableOpacity>
-          ) : isAdmin ? (
-            <View style={{ backgroundColor: '#EEF2FF', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#C7D2FE' }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={{ fontSize: 16 }}>🔒</Text>
-                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#3730A3' }}>
-                    ADMIN PERMISSION OVERRIDE
-                  </Text>
-                </View>
-                <Text style={{ fontSize: 11, color: '#4338CA', fontWeight: '600' }}>
-                  Locked by: {currentCustomer.locationLoggedBy || 'Staff'}
-                </Text>
-              </View>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity
-                  onPress={handleCaptureSTBLocation}
-                  disabled={loggingLocation}
-                  style={{ flex: 1, backgroundColor: '#2563EB', paddingVertical: 8, borderRadius: 8, alignItems: 'center' }}
-                >
-                  <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>⚡ Re-Lock / Update GPS</Text>
-                </TouchableOpacity>
 
-                <TouchableOpacity
-                  onPress={handleAdminDirectUnlock}
-                  style={{ flex: 1, backgroundColor: '#DC2626', paddingVertical: 8, borderRadius: 8, alignItems: 'center' }}
-                >
-                  <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>🔓 Admin Direct Unlock</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            <View style={{ backgroundColor: '#F0FDF4', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#BBF7D0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={{ fontSize: 16 }}>🔒</Text>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: '#166534' }}>
-                  Location Locked by {currentCustomer.locationLoggedBy || 'Field Staff'}
-                </Text>
-              </View>
+            {currentCustomer.locationLocked && (
               <TouchableOpacity
-                onPress={handleRequestUnlock}
-                style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: '#FDE68A' }}
+                style={{
+                  flex: 1,
+                  backgroundColor: '#EF4444',
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  gap: 4,
+                }}
+                onPress={handleResetSTBLocation}
+                disabled={loggingLocation}
+                activeOpacity={0.8}
               >
-                <Text style={{ fontSize: 11, fontWeight: '700', color: '#B45309' }}>🔓 Request Admin Unlock</Text>
+                <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>
+                  🗑️ Reset
+                </Text>
               </TouchableOpacity>
-            </View>
-          )}
+            )}
+          </View>
         </View>
 
         {/* 2026 Monthly Billing & Payment Status Ledger Hub */}

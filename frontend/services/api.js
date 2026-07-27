@@ -206,6 +206,10 @@ export async function updateSTBLocation(rowIndex, latitude, longitude, loggedBy)
   return apiPut('/api/stb/location', { rowIndex, latitude, longitude, loggedBy });
 }
 
+export async function clearSTBLocation(rowIndex) {
+  return apiPost('/api/stb/clear-location', { rowIndex });
+}
+
 export async function requestLocationUnlock(rowIndex, username, requestedBy, reason) {
   return apiPost('/api/stb/unlock-request', { rowIndex, username, requestedBy, reason });
 }
