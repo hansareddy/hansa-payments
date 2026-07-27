@@ -37,6 +37,46 @@ export default function ManageUsersScreen({ navigation }) {
   const [newRole, setNewRole] = useState('collector');
   const [addingUser, setAddingUser] = useState(false);
 
+  // Granular Checkbox Permissions State
+  const [permissions, setPermissions] = useState({
+    recordPayments: true,
+    lockLocation: true,
+    editProfile: true,
+    registerComplaint: true,
+    viewMap: true,
+    manageUsers: false,
+  });
+
+  const togglePermission = (key) => {
+    setPermissions(prev => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const handleRoleChange = (selectedRole) => {
+    setNewRole(selectedRole);
+    if (selectedRole === 'admin') {
+      setPermissions({
+        recordPayments: true,
+        lockLocation: true,
+        editProfile: true,
+        registerComplaint: true,
+        viewMap: true,
+        manageUsers: true,
+      });
+    } else {
+      setPermissions({
+        recordPayments: true,
+        lockLocation: true,
+        editProfile: true,
+        registerComplaint: true,
+        viewMap: true,
+        manageUsers: false,
+      });
+    }
+  };
+
   const loadUsers = useCallback(async () => {
     setError(null);
     try {
@@ -78,6 +118,7 @@ export default function ManageUsersScreen({ navigation }) {
         password: newPassword,
         displayName: newDisplayName.trim() || newUsername.trim(),
         role: newRole,
+        permissions,
       });
 
       setShowAddModal(false);
@@ -85,7 +126,15 @@ export default function ManageUsersScreen({ navigation }) {
       setNewPassword('');
       setNewDisplayName('');
       setNewRole('collector');
-      Alert.alert('Success', 'User account created successfully!');
+      setPermissions({
+        recordPayments: true,
+        lockLocation: true,
+        editProfile: true,
+        registerComplaint: true,
+        viewMap: true,
+        manageUsers: false,
+      });
+      Alert.alert('Success', 'User profile created with custom permissions!');
       loadUsers();
     } catch (err) {
       Alert.alert('Error', err.message);
@@ -129,15 +178,16 @@ export default function ManageUsersScreen({ navigation }) {
 
   const getRoleBadge = (role) => {
     if (role === 'admin') {
-      return { bg: '#EEF2FF', color: '#3730A3', label: 'ADMIN' };
+      return { bg: '#EEF2FF', color: '#3730A3', label: '👑 ADMIN' };
     }
-    return { bg: '#ECFDF5', color: '#065F46', label: 'COLLECTOR' };
+    return { bg: '#ECFDF5', color: '#065F46', label: '💼 COLLECTOR' };
   };
 
   const renderUser = ({ item }) => {
     const badge = getRoleBadge(item.role);
     const isCurrentUser = item.username === currentUser?.username;
     const isPrimaryAdmin = item.id === 1;
+    const userPerms = item.permissions || {};
 
     return (
       <View style={[styles.userCard, isCurrentUser && styles.userCardCurrent]}>
@@ -153,14 +203,27 @@ export default function ManageUsersScreen({ navigation }) {
               {item.displayName}
             </Text>
             {isCurrentUser && (
-              <Text style={styles.youBadge}>YOU</Text>
+              <Text style={styles.youBadge}>CURRENT PROFILE</Text>
             )}
           </View>
           <Text style={styles.userUsername}>@{item.username}</Text>
-          <View style={[styles.roleBadge, { backgroundColor: badge.bg }]}>
-            <Text style={[styles.roleBadgeText, { color: badge.color }]}>
-              {badge.label}
-            </Text>
+          
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+            <View style={[styles.roleBadge, { backgroundColor: badge.bg }]}>
+              <Text style={[styles.roleBadgeText, { color: badge.color }]}>
+                {badge.label}
+              </Text>
+            </View>
+          </View>
+
+          {/* Granular Active Permissions Pills */}
+          <View style={styles.permsPillRow}>
+            {userPerms.recordPayments && <Text style={styles.permPill}>💵 Collect Payments</Text>}
+            {userPerms.lockLocation && <Text style={styles.permPill}>📍 GPS Lock</Text>}
+            {userPerms.editProfile && <Text style={styles.permPill}>✏️ Edit Profile</Text>}
+            {userPerms.registerComplaint && <Text style={styles.permPill}>📝 Complaints</Text>}
+            {userPerms.viewMap && <Text style={styles.permPill}>🗺️ Network Map</Text>}
+            {userPerms.manageUsers && <Text style={[styles.permPill, styles.permPillAdmin]}>👥 User Mgmt</Text>}
           </View>
         </View>
 
@@ -181,34 +244,47 @@ export default function ManageUsersScreen({ navigation }) {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1E3A8A" />
 
-      {/* Header info */}
+      {/* Header Info Banner */}
       <View style={styles.headerInfo}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <View>
-            <Text style={styles.headerTitle}>User Accounts</Text>
+            <Text style={styles.headerTitle}>User Account Profiles</Text>
             <Text style={styles.headerSub}>
-              {users.length} registered {users.length === 1 ? 'user' : 'users'}
+              {users.length} registered profile{users.length === 1 ? '' : 's'} with custom RBAC permissions
             </Text>
           </View>
           <TouchableOpacity
-            style={{
-              backgroundColor: '#EF4444',
-              paddingHorizontal: 14,
-              paddingVertical: 8,
-              borderRadius: 8,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              elevation: 2,
-            }}
+            style={styles.logoutBtn}
             onPress={() => {
               Vibration.vibrate(20);
               logout();
             }}
             activeOpacity={0.8}
           >
-            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>🚪 Logout</Text>
+            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>🚪 Logout</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* Clear Active Profile Indicator Card */}
+        <View style={styles.activeProfileCard}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={{ fontSize: 18 }}>👤</Text>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: '#1E3A8A' }}>
+                  ACTIVE PROFILE: {currentUser?.displayName || 'Admin'} (@{currentUser?.username || 'admin'})
+                </Text>
+                <View style={{ backgroundColor: currentUser?.role === 'admin' ? '#EEF2FF' : '#ECFDF5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 9, fontWeight: '800', color: currentUser?.role === 'admin' ? '#3730A3' : '#047857' }}>
+                    {currentUser?.role === 'admin' ? '👑 ADMIN' : '💼 COLLECTOR'}
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 11, color: '#475569', marginTop: 1 }}>
+                {currentUser?.role === 'admin' ? 'Full Administrator Access & Granular Checkbox Permission Management' : 'Field Collection Profile Active'}
+              </Text>
+            </View>
+          </View>
         </View>
       </View>
 
@@ -216,7 +292,7 @@ export default function ManageUsersScreen({ navigation }) {
       {loading && (
         <View style={styles.centerBox}>
           <ActivityIndicator size="large" color="#1E3A8A" />
-          <Text style={styles.loadingText}>Loading users...</Text>
+          <Text style={styles.loadingText}>Loading profiles & permissions...</Text>
         </View>
       )}
 
@@ -261,7 +337,7 @@ export default function ManageUsersScreen({ navigation }) {
         }}
         activeOpacity={0.85}
       >
-        <Text style={styles.fabText}>+ Add User</Text>
+        <Text style={styles.fabText}>+ Add New User Profile</Text>
       </TouchableOpacity>
 
       {/* Add User Modal */}
@@ -281,9 +357,9 @@ export default function ManageUsersScreen({ navigation }) {
             <View style={styles.dragHandle} />
 
             <ScrollView contentContainerStyle={styles.modalContent}>
-              <Text style={styles.modalTitle}>Create New User</Text>
+              <Text style={styles.modalTitle}>Create New User Profile</Text>
               <Text style={styles.modalSub}>
-                Add a new login account for your team
+                Assign login credentials and select granular checkbox permissions
               </Text>
 
               {/* Username */}
@@ -322,7 +398,7 @@ export default function ManageUsersScreen({ navigation }) {
                 <Text style={styles.fieldLabel}>DISPLAY NAME</Text>
                 <TextInput
                   style={styles.fieldInput}
-                  placeholder="e.g. John Doe"
+                  placeholder="e.g. John Field Tech"
                   placeholderTextColor="#94A3B8"
                   value={newDisplayName}
                   onChangeText={setNewDisplayName}
@@ -332,32 +408,14 @@ export default function ManageUsersScreen({ navigation }) {
 
               {/* Role Selector */}
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>ROLE</Text>
+                <Text style={styles.fieldLabel}>ROLE PRESET</Text>
                 <View style={styles.roleRow}>
-                  <TouchableOpacity
-                    style={[
-                      styles.roleOption,
-                      newRole === 'admin' && styles.roleOptionActiveAdmin,
-                    ]}
-                    onPress={() => setNewRole('admin')}
-                    disabled={addingUser}
-                  >
-                    <Text
-                      style={[
-                        styles.roleOptionText,
-                        newRole === 'admin' && styles.roleOptionTextActive,
-                      ]}
-                    >
-                      👑 Admin
-                    </Text>
-                  </TouchableOpacity>
-
                   <TouchableOpacity
                     style={[
                       styles.roleOption,
                       newRole === 'collector' && styles.roleOptionActiveCollector,
                     ]}
-                    onPress={() => setNewRole('collector')}
+                    onPress={() => handleRoleChange('collector')}
                     disabled={addingUser}
                   >
                     <Text
@@ -366,10 +424,124 @@ export default function ManageUsersScreen({ navigation }) {
                         newRole === 'collector' && styles.roleOptionTextActive,
                       ]}
                     >
-                      📋 Collector
+                      💼 Field Collector
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.roleOption,
+                      newRole === 'admin' && styles.roleOptionActiveAdmin,
+                    ]}
+                    onPress={() => handleRoleChange('admin')}
+                    disabled={addingUser}
+                  >
+                    <Text
+                      style={[
+                        styles.roleOptionText,
+                        newRole === 'admin' && styles.roleOptionTextActive,
+                      ]}
+                    >
+                      👑 Full Admin
                     </Text>
                   </TouchableOpacity>
                 </View>
+              </View>
+
+              {/* GRANULAR PERMISSIONS CHECKBOXES HUB */}
+              <View style={styles.permsSection}>
+                <Text style={styles.permsSectionTitle}>GRANULAR PERMISSIONS (CHECKBOXES)</Text>
+                <Text style={styles.permsSectionSub}>Check all capabilities that this profile can perform:</Text>
+
+                <TouchableOpacity 
+                  style={styles.checkboxRow} 
+                  onPress={() => togglePermission('recordPayments')}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.checkboxBox, permissions.recordPayments && styles.checkboxBoxChecked]}>
+                    {permissions.recordPayments && <Text style={styles.checkboxCheck}>✓</Text>}
+                  </View>
+                  <Text style={styles.checkboxIcon}>💵</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.checkboxLabel}>Record Payments & Collect Money</Text>
+                    <Text style={styles.checkboxSub}>Collect cash/UPI payments from customers in app</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.checkboxRow} 
+                  onPress={() => togglePermission('lockLocation')}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.checkboxBox, permissions.lockLocation && styles.checkboxBoxChecked]}>
+                    {permissions.lockLocation && <Text style={styles.checkboxCheck}>✓</Text>}
+                  </View>
+                  <Text style={styles.checkboxIcon}>📍</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.checkboxLabel}>Log & Lock STB GPS Locations</Text>
+                    <Text style={styles.checkboxSub}>Capture on-site GPS coordinates for STB units</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.checkboxRow} 
+                  onPress={() => togglePermission('editProfile')}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.checkboxBox, permissions.editProfile && styles.checkboxBoxChecked]}>
+                    {permissions.editProfile && <Text style={styles.checkboxCheck}>✓</Text>}
+                  </View>
+                  <Text style={styles.checkboxIcon}>✏️</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.checkboxLabel}>Edit Customer Profiles</Text>
+                    <Text style={styles.checkboxSub}>Update Subscriber Name, Mobile Number, or Box #</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.checkboxRow} 
+                  onPress={() => togglePermission('registerComplaint')}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.checkboxBox, permissions.registerComplaint && styles.checkboxBoxChecked]}>
+                    {permissions.registerComplaint && <Text style={styles.checkboxCheck}>✓</Text>}
+                  </View>
+                  <Text style={styles.checkboxIcon}>📝</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.checkboxLabel}>Register Complaints & Service Notes</Text>
+                    <Text style={styles.checkboxSub}>Log customer complaints and field service notes</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.checkboxRow} 
+                  onPress={() => togglePermission('viewMap')}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.checkboxBox, permissions.viewMap && styles.checkboxBoxChecked]}>
+                    {permissions.viewMap && <Text style={styles.checkboxCheck}>✓</Text>}
+                  </View>
+                  <Text style={styles.checkboxIcon}>🗺️</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.checkboxLabel}>Access Network STB Map</Text>
+                    <Text style={styles.checkboxSub}>View OpenStreetMap multi-marker network view</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.checkboxRow} 
+                  onPress={() => togglePermission('manageUsers')}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.checkboxBox, permissions.manageUsers && styles.checkboxBoxChecked]}>
+                    {permissions.manageUsers && <Text style={styles.checkboxCheck}>✓</Text>}
+                  </View>
+                  <Text style={styles.checkboxIcon}>👥</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.checkboxLabel}>Admin User Management</Text>
+                    <Text style={styles.checkboxSub}>Create, edit, and delete user profiles</Text>
+                  </View>
+                </TouchableOpacity>
               </View>
 
               {/* Actions */}
@@ -396,7 +568,7 @@ export default function ManageUsersScreen({ navigation }) {
                   {addingUser ? (
                     <ActivityIndicator color="#FFF" size="small" />
                   ) : (
-                    <Text style={styles.modalCreateText}>Create Account</Text>
+                    <Text style={styles.modalCreateText}>Create Profile with Permissions</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -726,5 +898,97 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
+  },
+  logoutBtn: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  activeProfileCard: {
+    backgroundColor: '#EFF6FF',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    marginTop: 4,
+  },
+  permsPillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 8,
+  },
+  permPill: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#047857',
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  permPillAdmin: {
+    color: '#4338CA',
+    backgroundColor: '#EEF2FF',
+  },
+  permsSection: {
+    marginTop: 16,
+    padding: 14,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  permsSectionTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1E3A8A',
+    letterSpacing: 0.5,
+  },
+  permsSectionSub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginBottom: 12,
+    marginTop: 2,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    gap: 10,
+  },
+  checkboxBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxBoxChecked: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  checkboxCheck: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  checkboxIcon: {
+    fontSize: 16,
+  },
+  checkboxLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  checkboxSub: {
+    fontSize: 11,
+    color: '#64748B',
   },
 });

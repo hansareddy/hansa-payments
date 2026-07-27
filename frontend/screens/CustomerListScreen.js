@@ -320,7 +320,14 @@ export default function CustomerListScreen({ navigation }) {
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.headerLogo}>Hansa CRM</Text>
-            <Text style={styles.headerSub}>Welcome, {user?.displayName || 'User'}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <Text style={styles.headerSub}>👤 {user?.displayName || 'User'} (@{user?.username || 'user'})</Text>
+              <View style={{ backgroundColor: user?.role === 'admin' ? '#EEF2FF' : '#ECFDF5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                <Text style={{ fontSize: 9, fontWeight: '800', color: user?.role === 'admin' ? '#3730A3' : '#047857' }}>
+                  {user?.role === 'admin' ? '👑 ADMIN' : '💼 COLLECTOR'}
+                </Text>
+              </View>
+            </View>
           </View>
           <View style={styles.headerActionRow}>
             {/* complaints badge button */}

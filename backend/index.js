@@ -311,9 +311,9 @@ app.get('/api/users', adminOnly, (req, res) => {
 
 app.post('/api/users', adminOnly, (req, res) => {
   try {
-    const { username, password, role, displayName } = req.body;
-    const newUser = addUser(username, password, role, displayName);
-    console.log(`✅ Admin "${req.user.username}" created user "${username}".`);
+    const { username, password, role, displayName, permissions } = req.body;
+    const newUser = addUser(username, password, role, displayName, permissions);
+    console.log(`✅ Admin "${req.user.username}" created user "${username}" with permissions.`, permissions);
     res.json({ message: 'User created successfully.', user: newUser });
   } catch (error) {
     res.status(400).json({ error: error.message });

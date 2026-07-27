@@ -23,6 +23,24 @@ const BCRYPT_ROUNDS = 12;
 // In-memory user store
 // ---------------------------------------------------------------------------
 
+const DEFAULT_ADMIN_PERMISSIONS = {
+  recordPayments: true,
+  lockLocation: true,
+  editProfile: true,
+  registerComplaint: true,
+  viewMap: true,
+  manageUsers: true,
+};
+
+const DEFAULT_EMPLOYEE_PERMISSIONS = {
+  recordPayments: true,
+  lockLocation: true,
+  editProfile: true,
+  registerComplaint: true,
+  viewMap: true,
+  manageUsers: false,
+};
+
 let users = [
   {
     id: 1,
@@ -30,6 +48,7 @@ let users = [
     password: bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'hansa@2024', BCRYPT_ROUNDS),
     role: 'admin',
     displayName: 'Admin',
+    permissions: { ...DEFAULT_ADMIN_PERMISSIONS },
     createdAt: new Date().toISOString(),
   },
   {
@@ -38,6 +57,7 @@ let users = [
     password: bcrypt.hashSync(process.env.EMPLOYEE_PASSWORD || 'hansa@field', BCRYPT_ROUNDS),
     role: 'employee',
     displayName: 'Field Tech',
+    permissions: { ...DEFAULT_EMPLOYEE_PERMISSIONS },
     createdAt: new Date().toISOString(),
   },
 ];
@@ -56,7 +76,7 @@ const recentlyRotatedTokens = new Map(); // refreshToken → { result, timestamp
 // ---------------------------------------------------------------------------
 
 function _buildTokenPayload(user) {
-  return { id: user.id, username: user.username, role: user.role, displayName: user.displayName };
+  return { id: user.id, username: user.username, role: user.role, displayName: user.displayName, permissions: user.permissions || DEFAULT_EMPLOYEE_PERMISSIONS };
 }
 
 /**
@@ -89,6 +109,7 @@ function authenticate(username, password) {
       username: user.username,
       role: user.role,
       displayName: user.displayName,
+      permissions: user.permissions || (user.role === 'admin' ? DEFAULT_ADMIN_PERMISSIONS : DEFAULT_EMPLOYEE_PERMISSIONS),
     },
   };
 }
@@ -209,13 +230,14 @@ function getAllUsers() {
     username: u.username,
     role: u.role,
     displayName: u.displayName,
+    permissions: u.permissions || (u.role === 'admin' ? DEFAULT_ADMIN_PERMISSIONS : DEFAULT_EMPLOYEE_PERMISSIONS),
     createdAt: u.createdAt,
   }));
 }
 
-function addUser(username, password, role, displayName) {
+function addUser(username, password, role, displayName, customPermissions) {
   if (!username || !password) throw new Error('Username and password are required.');
-  if (password.length < 6) throw new Error('Password must be at least 6 characters.');
+  if (password.length < 4) throw new Error('Password must be at least 4 characters.');
   if (username.length < 3) throw new Error('Username must be at least 3 characters.');
 
   const exists = users.some(
@@ -223,12 +245,16 @@ function addUser(username, password, role, displayName) {
   );
   if (exists) throw new Error(`Username "${username}" already exists.`);
 
+  const userRole = role || 'collector';
+  const defaultPerms = userRole === 'admin' ? DEFAULT_ADMIN_PERMISSIONS : DEFAULT_EMPLOYEE_PERMISSIONS;
+
   const newUser = {
     id: nextId++,
     username: username.toLowerCase().trim(),
     password: bcrypt.hashSync(password, BCRYPT_ROUNDS),
-    role: role || 'collector',
+    role: userRole,
     displayName: displayName || username,
+    permissions: customPermissions ? { ...defaultPerms, ...customPermissions } : { ...defaultPerms },
     createdAt: new Date().toISOString(),
   };
 
@@ -238,6 +264,7 @@ function addUser(username, password, role, displayName) {
     username: newUser.username,
     role: newUser.role,
     displayName: newUser.displayName,
+    permissions: newUser.permissions,
     createdAt: newUser.createdAt,
   };
 }
