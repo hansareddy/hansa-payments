@@ -594,14 +594,25 @@ async function getAllCustomers() {
   try {
     const rows = await getAllRows();
     if (rows && rows.length > 1) {
+      // Find the first row among top 5 rows that contains header keywords (name, mobile, subscriber, customer, jan)
+      let headerRowIdx = 0;
+      for (let r = 0; r < Math.min(rows.length, 5); r++) {
+        const rowStr = (rows[r] || []).join(' ').toLowerCase();
+        if (rowStr.includes('name') || rowStr.includes('mobile') || rowStr.includes('subscriber') || rowStr.includes('customer') || rowStr.includes('jan')) {
+          headerRowIdx = r;
+          break;
+        }
+      }
+
       // Dynamically detect column mapping from header row
-      COL = detectColumnsFromHeader(rows[0]);
+      COL = detectColumnsFromHeader(rows[headerRowIdx]);
       const customers = [];
-      for (let i = 1; i < rows.length; i++) {
+      for (let i = headerRowIdx + 1; i < rows.length; i++) {
         const row = rows[i];
         if (row && row.length > 0 && (row[COL.USERNAME] || row[COL.MOBILE])) {
-          // Skip header row if present so rowIndex matches exact physical sheet row
+          // Skip any secondary header row
           if (row[COL.USERNAME] && row[COL.USERNAME].toLowerCase().trim() === 'username') continue;
+          if (row[COL.USERNAME] && row[COL.USERNAME].toLowerCase().trim() === 'name') continue;
           customers.push(rowToCustomer(row, i + 1));
         }
       }
