@@ -100,18 +100,28 @@ function detectColumnsFromHeader(headerRow) {
   const monthCols = {};
   MONTH_LIST.forEach((m) => {
     const keyLower = m.key.toLowerCase(); // "jan-26"
-    const shortLower = m.short.toLowerCase(); // "jan"
-    const fullLower = m.name.toLowerCase(); // "january 2026"
     const monthOnly = m.name.split(' ')[0].toLowerCase(); // "january"
+    const shortLower = m.short.toLowerCase(); // "jan"
 
+    // 1. Look for exact match containing 26 or 2026
     let foundIdx = norm.findIndex(h => 
       h === keyLower || 
-      h === fullLower || 
-      h === monthOnly || 
-      h === shortLower ||
-      h.startsWith(shortLower) ||
-      h.startsWith(monthOnly)
+      h === `${monthOnly} 2026` || 
+      h === `${shortLower} 2026` || 
+      h === `${monthOnly}-26` ||
+      h === `${shortLower}-26` ||
+      h === `${monthOnly} 26` ||
+      h === `${shortLower} 26`
     );
+
+    // 2. If not found with year 26, look for month header that does NOT belong to an old year (24/25)
+    if (foundIdx === -1) {
+      foundIdx = norm.findIndex(h => {
+        const isOldYear = h.includes('24') || h.includes('25') || h.includes('2024') || h.includes('2025');
+        if (isOldYear) return false;
+        return h === monthOnly || h === shortLower || h.startsWith(monthOnly) || h.startsWith(shortLower);
+      });
+    }
 
     monthCols[m.key] = foundIdx;
   });
@@ -572,7 +582,7 @@ async function getAllRows() {
 
   const response = await client.spreadsheets.values.get({
     spreadsheetId,
-    range: `'${sheetName}'!A:Z`,
+    range: `'${sheetName}'`,
   });
   return response.data.values || [];
 }
