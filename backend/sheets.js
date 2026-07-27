@@ -725,6 +725,18 @@ function colIndexToLetter(idx) {
  * Writes Transaction ID to Column N / TRANSACTION_ID.
  */
 async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmount = 0, transactionId = '', notes = '', targetUsername = '', selectedMonthKey = '') {
+  // Support single object parameter options e.g. updatePayment({ rowIndex, paymentMode, ... })
+  if (typeof rowIndex === 'object' && rowIndex !== null) {
+    const opts = rowIndex;
+    rowIndex = opts.rowIndex;
+    paymentMode = opts.paymentMode;
+    paymentAmount = opts.paymentAmount;
+    discountAmount = opts.discount || opts.discountAmount || 0;
+    transactionId = opts.transactionId || '';
+    notes = opts.notes || '';
+    targetUsername = opts.username || opts.targetUsername || '';
+    selectedMonthKey = opts.monthKey || opts.selectedMonthKey || '';
+  }
   const discountVal = parseFloat(discountAmount) || 0;
 
   const today = new Date();
