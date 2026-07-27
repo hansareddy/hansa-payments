@@ -99,6 +99,7 @@ function detectColumnsFromHeader(headerRow) {
 
   const monthCols = {};
   const monthPaidCols = {};
+  const monthDetailsCols = {};
 
   MONTH_LIST.forEach((m) => {
     const keyLower = m.key.toLowerCase(); // "jan-26"
@@ -120,11 +121,11 @@ function detectColumnsFromHeader(headerRow) {
         const isOldYear = h.includes('24') || h.includes('25') || h.includes('2024') || h.includes('2025');
         if (isOldYear) return false;
         return (h === monthOnly || h === shortLower || h.startsWith(monthOnly) || h.startsWith(shortLower)) &&
-               !h.includes('paid') && !h.includes('collected') && !h.includes('status');
+               !h.includes('paid') && !h.includes('collected') && !h.includes('status') && !h.includes('detail');
       });
     }
 
-    // 2. Secondary Paid / Collected Column index (if present)
+    // 2. Secondary Paid / Collected Column index
     let paidIdx = norm.findIndex(h => 
       h === `${shortLower}-26 paid` || h === `${shortLower} paid` || h === `${monthOnly} paid` ||
       h === `${shortLower}-26 collected` || h === `${shortLower} collected` || h === `${monthOnly} collected` ||
@@ -138,8 +139,22 @@ function detectColumnsFromHeader(headerRow) {
       }
     }
 
+    // 3. Details / Txn Ref Column index
+    let detailsIdx = norm.findIndex(h => 
+      h === `${keyLower} details` || h === `${shortLower}-26 details` || h === `${shortLower} details` || h === `${monthOnly} details` ||
+      h === `${keyLower} txn` || h === `${shortLower}-26 txn` || h === `${shortLower} txn` || h === `${monthOnly} txn`
+    );
+
+    if (detailsIdx === -1 && paidIdx !== -1 && paidIdx + 1 < norm.length) {
+      const nextH = norm[paidIdx + 1];
+      if (nextH.includes('detail') || nextH.includes('txn') || nextH.includes('ref')) {
+        detailsIdx = paidIdx + 1;
+      }
+    }
+
     monthCols[m.key] = feeIdx;
     monthPaidCols[m.key] = paidIdx;
+    monthDetailsCols[m.key] = detailsIdx;
   });
 
   COL = {
@@ -167,6 +182,7 @@ function detectColumnsFromHeader(headerRow) {
     TRANSACTION_ID: exact('transaction id') !== -1 ? exact('transaction id') : (exact('txn id') !== -1 ? exact('txn id') : -1),
     MONTH_COLS: monthCols,
     MONTH_PAID_COLS: monthPaidCols,
+    MONTH_DETAILS_COLS: monthDetailsCols,
   };
 
   return COL;
@@ -771,29 +787,47 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
       const paidColIdx = (COL.MONTH_PAID_COLS && COL.MONTH_PAID_COLS[targetMonthKey] !== undefined)
         ? COL.MONTH_PAID_COLS[targetMonthKey]
         : -1;
+      const detailsColIdx = (COL.MONTH_DETAILS_COLS && COL.MONTH_DETAILS_COLS[targetMonthKey] !== undefined)
+        ? COL.MONTH_DETAILS_COLS[targetMonthKey]
+        : -1;
 
-      // Prefer writing to the Paid/Collected column if present; otherwise write to fee column
-      let writeColIdx = feeColIdx;
-      if (paidColIdx !== -1 && paidColIdx !== feeColIdx) {
-        writeColIdx = paidColIdx;
-      }
-
+      // 1. Write Paid Amount to Paid Column (or Fee column if single column mode)
+      let writeColIdx = paidColIdx !== -1 ? paidColIdx : feeColIdx;
       if (writeColIdx !== -1) {
         const colLetter = colIndexToLetter(writeColIdx);
-        
-        // Clean single entry e.g. "300 (CASH 27/7)"
-        const updatedCellText = `${paymentAmount} (${paymentMode} ${shortDate})`;
+        // Numeric paid amount in Paid column
+        const paidCellVal = String(paymentAmount);
 
-        console.log(`📝 Writing month payment cell ${colLetter}${index}: "${updatedCellText}"`);
+        console.log(`📝 Writing Paid column cell ${colLetter}${index}: "${paidCellVal}"`);
         await client.spreadsheets.values.update({
           spreadsheetId,
           range: `'${sheetName}'!${colLetter}${index}`,
           valueInputOption: 'USER_ENTERED',
-          requestBody: { values: [[updatedCellText]] },
+          requestBody: { values: [[paidCellVal]] },
         });
 
-        // In dual column mode, clean up old dirty string from fee column if present
-        if (paidColIdx !== -1 && paidColIdx !== feeColIdx && feeColIdx !== -1) {
+        // 2. Write Details & Transaction ID to Details Column
+        let targetDetailsColIdx = detailsColIdx;
+        if (targetDetailsColIdx === -1 && paidColIdx !== -1 && paidColIdx + 1 < 100) {
+          targetDetailsColIdx = paidColIdx + 1;
+        }
+
+        if (targetDetailsColIdx !== -1) {
+          const detailsColLetter = colIndexToLetter(targetDetailsColIdx);
+          const txnRefStr = transactionId && transactionId.trim() ? ` Ref: ${transactionId.trim()}` : '';
+          const detailsCellVal = `${paymentMode} ${shortDate}${txnRefStr}`;
+
+          console.log(`📝 Writing Details column cell ${detailsColLetter}${index}: "${detailsCellVal}"`);
+          await client.spreadsheets.values.update({
+            spreadsheetId,
+            range: `'${sheetName}'!${detailsColLetter}${index}`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: { values: [[detailsCellVal]] },
+          });
+        }
+
+        // Clean up Fee column cell if needed
+        if (feeColIdx !== -1 && feeColIdx !== writeColIdx) {
           const feeColLetter = colIndexToLetter(feeColIdx);
           const rawFeeVal = (current && current.monthlyPayments && current.monthlyPayments[targetMonthIndex])
             ? current.monthlyPayments[targetMonthIndex].details

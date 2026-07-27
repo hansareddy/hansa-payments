@@ -622,10 +622,18 @@ export default function CustomerDetailScreen({ route, navigation }) {
               const isPaid = m.status === 'Paid';
               const isUnpaid = m.status === 'Unpaid';
               const isNotDue = !isPaid && !isUnpaid;
+              const detailsText = m.detailsColText || (isPaid && m.details !== 'Paid' ? m.details : '');
 
               return (
                 <View key={m.key || i} style={[styles.monthTableRow, i % 2 === 1 && { backgroundColor: '#F8FAFC' }, isNotDue && { opacity: 0.45 }]}>
-                  <Text style={[styles.monthTableCell, { flex: 2, fontWeight: '600', color: isNotDue ? '#94A3B8' : '#1E293B' }]}>{m.name}</Text>
+                  <View style={{ flex: 2 }}>
+                    <Text style={[styles.monthTableCell, { fontWeight: '600', color: isNotDue ? '#94A3B8' : '#1E293B' }]}>{m.name}</Text>
+                    {detailsText ? (
+                      <Text style={{ fontSize: 10, color: '#475569', fontWeight: '500', marginTop: 2 }}>
+                        {detailsText}
+                      </Text>
+                    ) : null}
+                  </View>
                   
                   <Text style={[styles.monthTableCell, { flex: 1.2, textAlign: 'center', fontWeight: '700', color: isPaid ? '#059669' : (isUnpaid ? '#DC2626' : '#CBD5E1') }]}>
                     {isPaid ? '0' : (isUnpaid ? `₹${m.amount}` : '-')}
