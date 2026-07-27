@@ -1270,4 +1270,5 @@ module.exports = {
   getClient,
   getSpreadsheetId,
   resolveSheetName,
+  resolveSheetId,
 };
