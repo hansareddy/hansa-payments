@@ -179,11 +179,11 @@ export default function CustomerListScreen({ navigation }) {
                 const match = pStr.match(/^(\d+(\.\d+)?)/) || pStr.match(/(\d+(\.\d+)?)\s*(?=\()/);
                 const amt = match ? parseFloat(match[1]) : (m.paidAmount || m.amount || 300);
                 
-                let mode = 'BANK';
+                let mode = 'UPI';
                 const pUpper = pStr.toUpperCase();
                 if (pUpper.includes('CASH')) mode = 'CASH';
-                else if (pUpper.includes('GPAY')) mode = 'GPAY';
-                else if (pUpper.includes('PHONEPE')) mode = 'PHONEPE';
+                else if (pUpper.includes('PHONEPE') || pUpper.includes('PHONE PE')) mode = 'PHONEPE';
+                else if (pUpper.includes('GPAY') || pUpper.includes('GOOGLE')) mode = 'GPAY';
                 else if (pUpper.includes('PAYTM')) mode = 'PAYTM';
                 else if (pUpper.includes('UPI')) mode = 'UPI';
 
@@ -204,7 +204,7 @@ export default function CustomerListScreen({ navigation }) {
                     mode: mode,
                     amount: amt,
                     discount: c.discount || 0,
-                    transactionId: c.transactionId || 'SHEET_REC',
+                    transactionId: (!c.transactionId || c.transactionId === 'SHEET_REC') ? 'Verified' : c.transactionId,
                     notes: `${m.name} (${pStr})`,
                   });
                 }
@@ -665,50 +665,57 @@ export default function CustomerListScreen({ navigation }) {
                       }
                     }}
                   >
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                      <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A' }}>{item.username}</Text>
-                      <View style={{
-                        paddingHorizontal: 8,
-                        paddingVertical: 3,
-                        borderRadius: 6,
-                        backgroundColor: item.mode === 'CASH' ? '#ECFDF5' : '#EFF6FF',
-                      }}>
-                        <Text style={{
-                          fontSize: 11,
-                          fontWeight: '700',
-                          color: item.mode === 'CASH' ? '#059669' : '#1D4ED8',
-                        }}>
-                          {item.mode === 'CASH' ? 'CASH' : 'BANK / UPI'}
-                        </Text>
-                      </View>
-                    </View>
+                    {(() => {
+                      const mUpper = String(item.mode || '').toUpperCase();
+                      let label = 'UPI';
+                      let bg = '#EEF2FF';
+                      let text = '#2563EB';
 
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                      <Text style={{ fontSize: 18, fontWeight: '800', color: '#059669' }}>
-                        {formatCurrency(item.amount)}
-                      </Text>
-                      <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '500' }}>
-                        Date: {item.date}
-                      </Text>
-                    </View>
+                      if (mUpper === 'CASH') { label = 'Cash'; bg = '#ECFDF5'; text = '#059669'; }
+                      else if (mUpper === 'PHONEPE') { label = 'PhonePe'; bg = '#EEF2FF'; text = '#4338CA'; }
+                      else if (mUpper === 'GPAY') { label = 'Google Pay'; bg = '#EFF6FF'; text = '#1D4ED8'; }
+                      else if (mUpper === 'PAYTM') { label = 'Paytm'; bg = '#F0F9FF'; text = '#0284C7'; }
 
-                    <View style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      borderTopWidth: 1,
-                      borderTopColor: '#F1F5F9',
-                      paddingTop: 6,
-                    }}>
-                      <Text style={{ fontSize: 12, fontWeight: '600', color: '#1E3A8A' }}>
-                        Txn ID (Col N): {item.transactionId || 'N/A'}
-                      </Text>
-                      {item.discount > 0 && (
-                        <Text style={{ fontSize: 11, color: '#D97706', fontWeight: '600' }}>
-                          Disc: {formatCurrency(item.discount)}
-                        </Text>
-                      )}
-                    </View>
+                      const displayTxnId = (!item.transactionId || item.transactionId === 'SHEET_REC') ? 'Verified' : item.transactionId;
+
+                      return (
+                        <>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                            <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A' }}>{item.username}</Text>
+                            <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: bg }}>
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: text }}>{label}</Text>
+                            </View>
+                          </View>
+
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                            <Text style={{ fontSize: 18, fontWeight: '800', color: '#059669' }}>
+                              {formatCurrency(item.amount)}
+                            </Text>
+                            <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '500' }}>
+                              Date: {item.date}
+                            </Text>
+                          </View>
+
+                          <View style={{
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            borderTopWidth: 1,
+                            borderTopColor: '#F1F5F9',
+                            paddingTop: 6,
+                          }}>
+                            <Text style={{ fontSize: 12, fontWeight: '600', color: '#1E3A8A' }}>
+                              Ref ID: {displayTxnId}
+                            </Text>
+                            {item.discount > 0 && (
+                              <Text style={{ fontSize: 11, color: '#D97706', fontWeight: '600' }}>
+                                Disc: {formatCurrency(item.discount)}
+                              </Text>
+                            )}
+                          </View>
+                        </>
+                      );
+                    })()}
                   </TouchableOpacity>
                 ))
               )}
