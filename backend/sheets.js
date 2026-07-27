@@ -339,20 +339,24 @@ function rowToCustomer(row, rowIndex) {
     }
 
     const lower = rawVal.toLowerCase();
-    const hasPaymentKeyword = lower.includes('cash') || 
-                              lower.includes('gpay') || 
-                              lower.includes('phonepe') || 
-                              lower.includes('paytm') || 
-                              lower.includes('upi') || 
-                              lower.includes('bank') || 
-                              lower.includes('paid') ||
-                              lower.includes('(');
+    const isUnpaidText = lower === 'unpaid' || lower.includes('unpaid') || lower === 'un-paid' || lower === 'due' || lower === 'pending';
+
+    const hasPaymentKeyword = !isUnpaidText && (
+      lower.includes('cash') || 
+      lower.includes('gpay') || 
+      lower.includes('phonepe') || 
+      lower.includes('paytm') || 
+      lower.includes('upi') || 
+      lower.includes('bank') || 
+      /\bpaid\b/.test(lower) ||
+      lower.includes('(')
+    );
 
     let status = 'None';
     let monthAmount = 0;
     let paidAmount = 0;
 
-    if (rawVal === '' || rawVal === '0' || rawVal === '0.00' || rawVal === '-' || (cellNum === 0 && !hasPaymentKeyword)) {
+    if (rawVal === '' || rawVal === '0' || rawVal === '0.00' || rawVal === '-' || isUnpaidText || (cellNum === 0 && !hasPaymentKeyword)) {
       status = 'None';
       monthAmount = 0;
       paidAmount = 0;
