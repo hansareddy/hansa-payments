@@ -692,9 +692,9 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
       }
 
       const targetMonthIndex = MONTH_LIST.findIndex(m => m.key === targetMonthKey);
-      const monthColIdx = (COL.MONTH_COLS && COL.MONTH_COLS[targetMonthKey] !== undefined && COL.MONTH_COLS[targetMonthKey] !== -1)
+      const monthColIdx = (COL.MONTH_COLS && COL.MONTH_COLS[targetMonthKey] !== undefined)
         ? COL.MONTH_COLS[targetMonthKey]
-        : (targetMonthIndex !== -1 ? 8 + targetMonthIndex : -1);
+        : -1;
 
       if (monthColIdx !== -1) {
         const colLetter = colIndexToLetter(monthColIdx);
@@ -1142,6 +1142,12 @@ async function updateCustomerProfile(rowIndex, { username, mobile, boxNo }) {
   return await getCustomerByRow(targetIndex);
 }
 
+function invalidateSheetCache() {
+  _resolvedSheetName = null;
+  _resolvedSheetId = null;
+  console.log('🔄 Sheet tab cache invalidated.');
+}
+
 module.exports = {
   getAllCustomers,
   searchCustomers,
@@ -1157,4 +1163,5 @@ module.exports = {
   getAllRows,
   detectColumnsFromHeader,
   rowToCustomer,
+  invalidateSheetCache,
 };

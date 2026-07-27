@@ -33,6 +33,7 @@ const {
   getUnlockRequests,
   approveLocationUnlock,
   updateCustomerProfile,
+  invalidateSheetCache,
 } = require('./sheets');
 
 const app = express();
@@ -331,7 +332,10 @@ app.post('/api/customers', async (req, res) => {
 
 app.get('/api/customers', async (req, res) => {
   try {
-    const { q } = req.query;
+    const { q, refresh } = req.query;
+    if (refresh === 'true' || refresh === '1') {
+      invalidateSheetCache();
+    }
     let customers;
     if (q && q.trim().length > 0) {
       customers = await searchCustomers(q);
