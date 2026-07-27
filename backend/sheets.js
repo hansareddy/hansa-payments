@@ -385,7 +385,8 @@ function rowToCustomer(row, rowIndex) {
 
     if (paidColIdx !== -1 && paidColIdx !== feeColIdx) {
       // ── DUAL COLUMN MODE ──
-      if (paidHasPayment || lowerPaid === 'paid') {
+      // Check both Paid column AND Fee column for payment text
+      if (paidHasPayment || lowerPaid === 'paid' || feeHasPayment) {
         status = 'Paid';
         monthAmount = feeNum > 0 ? feeNum : (paidNum > 0 ? paidNum : monthlyFee);
         paidAmount = monthAmount;
@@ -778,6 +779,26 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
           valueInputOption: 'USER_ENTERED',
           requestBody: { values: [[updatedCellText]] },
         });
+
+        // In dual column mode, clean up old dirty string from fee column if present
+        if (paidColIdx !== -1 && paidColIdx !== feeColIdx && feeColIdx !== -1) {
+          const feeColLetter = colIndexToLetter(feeColIdx);
+          const rawFeeVal = (current && current.monthlyPayments && current.monthlyPayments[targetMonthIndex])
+            ? current.monthlyPayments[targetMonthIndex].details
+            : '';
+          
+          if (rawFeeVal && (rawFeeVal.includes(',') || rawFeeVal.includes('CASH') || rawFeeVal.includes('('))) {
+            const numMatch = String(rawFeeVal).match(/^(\d+(\.\d+)?)/);
+            const cleanFee = numMatch ? numMatch[1] : '300';
+            console.log(`🧹 Cleaning fee column cell ${feeColLetter}${index}: "${cleanFee}"`);
+            await client.spreadsheets.values.update({
+              spreadsheetId,
+              range: `'${sheetName}'!${feeColLetter}${index}`,
+              valueInputOption: 'USER_ENTERED',
+              requestBody: { values: [[cleanFee]] },
+            });
+          }
+        }
 
         // Change target month cell background color to Green in Google Sheets
         try {
