@@ -512,40 +512,26 @@ async function resolveSheetName() {
 
   const client = await getClient();
   const spreadsheetId = getSpreadsheetId();
-  const rawConfigured = (process.env.SHEET_NAME || '').trim().replace(/^["']|["']$/g, '');
 
-  // Try the configured name first
-  if (rawConfigured) {
-    for (const name of [rawConfigured, rawConfigured.trim()]) {
-      try {
-        const response = await client.spreadsheets.values.get({
-          spreadsheetId,
-          range: `'${name}'!A1:A1`,
-        });
-        _resolvedSheetName = name;
-        console.log(`✅ Sheet tab resolved to configured name: "${name}"`);
-        return _resolvedSheetName;
-      } catch (e) {
-        // continue
-      }
-    }
-  }
-
-  // Fallback: auto-detect first tab from spreadsheet metadata
+  // Primary: Always auto-detect first active sheet tab from spreadsheet metadata
   try {
     const meta = await client.spreadsheets.get({ spreadsheetId });
     if (meta.data.sheets && meta.data.sheets.length > 0) {
       _resolvedSheetName = meta.data.sheets[0].properties.title;
-      console.log(`✅ Sheet tab auto-detected: "${_resolvedSheetName}"`);
+      console.log(`✅ Sheet tab auto-detected as primary active tab: "${_resolvedSheetName}"`);
       return _resolvedSheetName;
     }
   } catch (err) {
-    console.error('Failed to auto-detect sheet tab:', err.message);
+    console.error('Failed to auto-detect sheet tab from metadata:', err.message);
   }
 
-  // Last resort fallback
+  const rawConfigured = (process.env.SHEET_NAME || '').trim().replace(/^["']|["']$/g, '');
+  if (rawConfigured) {
+    _resolvedSheetName = rawConfigured;
+    return _resolvedSheetName;
+  }
+
   _resolvedSheetName = 'Sheet1';
-  console.warn('⚠️ Using fallback sheet name: "Sheet1"');
   return _resolvedSheetName;
 }
 
