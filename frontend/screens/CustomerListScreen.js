@@ -22,7 +22,7 @@ import {
   BackHandler,
   Image,
 } from 'react-native';
-import { getCustomers, recordPayment } from '../services/api';
+import { getCustomers, recordPayment, updateSTBLocation } from '../services/api';
 import { useAuth } from '../services/AuthContext';
 import { processQueue, getPendingCount } from '../services/OfflineQueue';
 import STBMapView from '../components/STBMapView';
@@ -64,8 +64,8 @@ export default function CustomerListScreen({ navigation }) {
     try {
       for (let i = 0; i < attempts; i++) {
         try {
-          // Auto-sync offline queue if connection is restored
-          const syncResult = await processQueue(recordPayment);
+          // Auto-sync offline queue (payments + location locks) if connection is restored
+          const syncResult = await processQueue(recordPayment, updateSTBLocation);
           if (syncResult.synced > 0) {
             Vibration.vibrate([0, 50, 50, 50]);
           }

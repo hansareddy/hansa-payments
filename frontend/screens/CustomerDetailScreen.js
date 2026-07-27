@@ -23,6 +23,8 @@ import { registerComplaint, searchCustomers, updateSTBLocation, clearSTBLocation
 import { useAuth } from '../services/AuthContext';
 import STBMapView from '../components/STBMapView';
 
+import { enqueueLocationLock } from '../services/offlineQueue';
+
 const DEFAULT_12_MONTHS = [
   { key: 'Jan-26', name: 'January 2026', short: 'Jan' },
   { key: 'Feb-26', name: 'February 2026', short: 'Feb' },
@@ -186,27 +188,38 @@ export default function CustomerDetailScreen({ route, navigation }) {
     const saveCoords = async (lat, lng) => {
       try {
         let updatedCust = null;
+        let isOfflineQueued = false;
         try {
-          const res = await updateSTBLocation(currentCustomer.rowIndex, lat, lng, user?.name || 'Field Tech');
+          const res = await updateSTBLocation(currentCustomer.rowIndex, lat, lng, user?.displayName || user?.username || 'Field Tech');
           if (res && res.customer) updatedCust = res.customer;
         } catch (apiErr) {
-          console.warn('STB location API warning:', apiErr.message);
+          console.warn('STB location API warning (queueing offline):', apiErr.message);
+          await enqueueLocationLock({
+            rowIndex: currentCustomer.rowIndex,
+            latitude: lat,
+            longitude: lng,
+            loggedBy: user?.displayName || user?.username || 'Field Tech',
+          }, currentCustomer.username);
+          isOfflineQueued = true;
         }
 
         setCurrentCustomer(prev => ({
           ...prev,
           latitude: lat,
           longitude: lng,
-          location: `${lat.toFixed(6)},${lng.toFixed(6)} (LOCKED)`,
+          location: isOfflineQueued ? `${lat.toFixed(6)},${lng.toFixed(6)} (OFFLINE QUEUED)` : `${lat.toFixed(6)},${lng.toFixed(6)} (LOCKED)`,
           locationLocked: true,
-          locationLoggedBy: user?.name || 'Field Tech',
+          locationLoggedBy: user?.displayName || user?.username || 'Field Tech',
           locationTimestamp: new Date().toISOString(),
           ...(updatedCust || {}),
         }));
 
-        const successMsg = `📍 STB Location Re-Locked: Coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)}) updated and locked.`;
+        const successMsg = isOfflineQueued
+          ? `⚡ STB Location Locked (Offline): Satellite coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)}) saved locally. Will auto-sync to backend when signal returns!`
+          : `📍 STB Location Locked: Coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)}) saved & verified.`;
+
         if (Platform.OS === 'web') alert(successMsg);
-        else Alert.alert('📍 STB Location Locked', successMsg);
+        else Alert.alert('📍 STB Location Saved', successMsg);
       } catch (err) {
         if (Platform.OS === 'web') alert(`Location Update Error: ${err.message}`);
         else Alert.alert('Location Update Error', err.message);
