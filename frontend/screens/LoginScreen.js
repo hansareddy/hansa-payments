@@ -90,7 +90,7 @@ export default function LoginScreen() {
             {/* Error Message */}
             {error && (
               <View style={styles.errorBox}>
-                <Text style={styles.errorText}>⚠  {error}</Text>
+                <Text style={styles.errorText}>{error}</Text>
               </View>
             )}
 
@@ -98,7 +98,6 @@ export default function LoginScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>USERNAME</Text>
               <View style={styles.inputRow}>
-                <Text style={styles.inputIcon}>👤</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Enter username"
@@ -120,7 +119,6 @@ export default function LoginScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>PASSWORD</Text>
               <View style={styles.inputRow}>
-                <Text style={styles.inputIcon}>🔒</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Enter password"
@@ -142,8 +140,8 @@ export default function LoginScreen() {
                   style={styles.eyeBtn}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Text style={styles.eyeIcon}>
-                    {showPassword ? '🙈' : '👁'}
+                  <Text style={[styles.eyeIcon, { fontSize: 11, fontWeight: '700', color: '#3B82F6' }]}>
+                    {showPassword ? 'HIDE' : 'SHOW'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -168,7 +166,7 @@ export default function LoginScreen() {
           <View style={styles.footerSection}>
             <View style={styles.footerDivider} />
             <Text style={styles.footerText}>
-              🔐  Authorized Personnel Only
+              Authorized Personnel Only
             </Text>
             <Text style={styles.versionText}>v1.0.0</Text>
           </View>

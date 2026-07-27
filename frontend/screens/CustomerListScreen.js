@@ -472,6 +472,7 @@ export default function CustomerListScreen({ navigation }) {
 
       {error && !loading && (
         <View style={styles.errorContainer}>
+          <View style={styles.errorContainer}>
           <Text style={styles.errorTitle}>Synchronization Failed</Text>
           <Text style={styles.errorSub}>{error}</Text>
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
@@ -482,7 +483,7 @@ export default function CustomerListScreen({ navigation }) {
               style={[styles.retryBtn, { backgroundColor: '#EF4444' }]} 
               onPress={() => { Vibration.vibrate(20); logout(); }}
             >
-              <Text style={styles.retryText}>🔑 Log In Again</Text>
+              <Text style={styles.retryText}>Log In Again</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -502,7 +503,6 @@ export default function CustomerListScreen({ navigation }) {
           ListEmptyComponent={
             !error && (
               <View style={styles.centerBox}>
-                <Text style={styles.emptyIcon}>📋</Text>
                 <Text style={styles.emptyText}>No accounts found</Text>
               </View>
             )
@@ -545,7 +545,6 @@ export default function CustomerListScreen({ navigation }) {
             <ScrollView contentContainerStyle={styles.modalScroll}>
               {activeComplaints.length === 0 ? (
                 <View style={styles.modalEmptyBox}>
-                  <Text style={styles.modalEmptyEmoji}>🎉</Text>
                   <Text style={styles.modalEmptyText}>All complaints cleared!</Text>
                 </View>
               ) : (
@@ -556,28 +555,28 @@ export default function CustomerListScreen({ navigation }) {
                   return (
                     <TouchableOpacity
                       key={item.rowIndex}
+                      activeOpacity={0.8}
                       style={[styles.ticketCard, isUrgent && styles.ticketCardUrgent]}
-                      activeOpacity={0.85}
                       onPress={() => {
-                        Vibration.vibrate(20);
                         setShowComplaintsDrawer(false);
                         navigation.navigate('CustomerDetail', { customer: item });
                       }}
                     >
-                      <View style={styles.ticketHeader}>
-                        <Text style={styles.ticketUsername}>{item.username}</Text>
-                        {isUrgent && (
-                          <View style={styles.urgentBadgeInline}>
-                            <Text style={styles.urgentBadgeInlineText}>URGENT</Text>
-                          </View>
-                        )}
+                      <View style={styles.ticketHeaderRow}>
+                        <Text style={styles.ticketName}>{item.username}</Text>
+                        <View style={[styles.ticketBadge, isUrgent && styles.ticketBadgeUrgent]}>
+                          <Text style={[styles.ticketBadgeText, isUrgent && styles.ticketBadgeTextUrgent]}>
+                            {isUrgent ? 'URGENT' : 'PENDING'}
+                          </Text>
+                        </View>
                       </View>
-                      <Text style={styles.ticketSubRow}>IP: {item.ipAddress || 'No IP'}  •  Row: {item.rowIndex}</Text>
-                      
-                      <View style={[styles.ticketBubble, isUrgent && styles.ticketBubbleUrgent]}>
-                        <Text style={styles.ticketText}>{displayNotes}</Text>
+
+                      <Text style={styles.ticketNotes}>{displayNotes}</Text>
+
+                      <View style={styles.ticketFooter}>
+                        <Text style={styles.ticketSubRow}>IP: {item.ipAddress || 'No IP'}  •  Row: {item.rowIndex}</Text>
+                        <Text style={styles.ticketAction}>Open Profile</Text>
                       </View>
-                      <Text style={styles.ticketAction}>Open Profile ➔</Text>
                     </TouchableOpacity>
                   );
                 })
@@ -607,7 +606,7 @@ export default function CustomerListScreen({ navigation }) {
             {/* Modal Header */}
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>📜 Payment History Log</Text>
+                <Text style={styles.modalTitle}>Payment History Log</Text>
                 <Text style={styles.modalSubTitle}>Transactions collected across all accounts</Text>
               </View>
               <TouchableOpacity 
@@ -642,7 +641,6 @@ export default function CustomerListScreen({ navigation }) {
             <ScrollView contentContainerStyle={styles.modalScroll}>
               {getAllPayments().length === 0 ? (
                 <View style={styles.modalEmptyBox}>
-                  <Text style={styles.modalEmptyEmoji}>💳</Text>
                   <Text style={styles.modalEmptyText}>No payment history records found.</Text>
                 </View>
               ) : (
@@ -681,7 +679,7 @@ export default function CustomerListScreen({ navigation }) {
                           fontWeight: '700',
                           color: item.mode === 'CASH' ? '#059669' : '#1D4ED8',
                         }}>
-                          {item.mode === 'CASH' ? '💵 CASH' : '🏦 BANK / UPI'}
+                          {item.mode === 'CASH' ? 'CASH' : 'BANK / UPI'}
                         </Text>
                       </View>
                     </View>
@@ -691,7 +689,7 @@ export default function CustomerListScreen({ navigation }) {
                         {formatCurrency(item.amount)}
                       </Text>
                       <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '500' }}>
-                        📅 {item.date}
+                        Date: {item.date}
                       </Text>
                     </View>
 
@@ -737,7 +735,7 @@ export default function CustomerListScreen({ navigation }) {
             <View style={styles.dragHandle} />
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>🗺️ Network STB Geolocation Map</Text>
+                <Text style={styles.modalTitle}>Network STB Geolocation Map</Text>
                 <Text style={styles.modalSubTitle}>STB Serial Number locations across network</Text>
               </View>
               <TouchableOpacity
@@ -790,7 +788,7 @@ export default function CustomerListScreen({ navigation }) {
                       </View>
                       <View style={{ backgroundColor: c.locationLocked ? '#D1FAE5' : '#FEF3C7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
                         <Text style={{ fontSize: 10, fontWeight: '800', color: c.locationLocked ? '#047857' : '#B45309' }}>
-                          {c.locationLocked ? '🔒 LOCKED' : '🟡 UNVERIFIED'}
+                          {c.locationLocked ? 'LOCKED' : 'UNVERIFIED'}
                         </Text>
                       </View>
                     </TouchableOpacity>

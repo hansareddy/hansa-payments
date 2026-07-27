@@ -215,11 +215,11 @@ export default function CustomerDetailScreen({ route, navigation }) {
         }));
 
         const successMsg = isOfflineQueued
-          ? `⚡ STB Location Locked (Offline): Satellite coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)}) saved locally. Will auto-sync to backend when signal returns!`
-          : `📍 STB Location Locked: Coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)}) saved & verified.`;
+          ? `STB Location Locked (Offline): Satellite coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)}) saved locally. Will auto-sync to backend when signal returns!`
+          : `STB Location Locked: Coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)}) saved & verified.`;
 
         if (Platform.OS === 'web') alert(successMsg);
-        else Alert.alert('📍 STB Location Saved', successMsg);
+        else Alert.alert('STB Location Saved', successMsg);
       } catch (err) {
         if (Platform.OS === 'web') alert(`Location Update Error: ${err.message}`);
         else Alert.alert('Location Update Error', err.message);
@@ -306,7 +306,7 @@ export default function CustomerDetailScreen({ route, navigation }) {
         locationLocked: false,
         locationLoggedBy: null,
       }));
-      const msg = '🔓 STB Location unlocked by Admin. Field staff can now log updated coordinates.';
+      const msg = 'STB Location unlocked by Admin. Field staff can now log updated coordinates.';
       if (Platform.OS === 'web') alert(msg);
       else Alert.alert('Location Unlocked', msg);
     } catch (err) {
@@ -405,7 +405,7 @@ export default function CustomerDetailScreen({ route, navigation }) {
         {hasComplaint && (
           <View style={[styles.complaintBanner, !hasUrgentComplaint && { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
             <Text style={[styles.complaintBannerTitle, !hasUrgentComplaint && { color: '#1D4ED8' }]}>
-              {hasUrgentComplaint ? '⚠️ PENDING URGENT COMPLAINT' : '📋 ACTIVE COMPLAINT / NOTE'}
+              {hasUrgentComplaint ? 'PENDING URGENT COMPLAINT' : 'ACTIVE COMPLAINT / NOTE'}
             </Text>
             <Text style={[styles.complaintBannerMsg, !hasUrgentComplaint && { color: '#1E40AF' }]}>{cleanComplaint}</Text>
           </View>
@@ -414,7 +414,6 @@ export default function CustomerDetailScreen({ route, navigation }) {
         {/* MOBILE QUICK ACTIONS PANEL */}
         <View style={styles.actionsPanel}>
           <TouchableOpacity style={styles.actionBtnCall} onPress={handleCall}>
-            <Text style={styles.actionBtnEmoji}>📞</Text>
             <Text style={styles.actionBtnLabel}>Call Client</Text>
           </TouchableOpacity>
 
@@ -708,7 +707,7 @@ export default function CustomerDetailScreen({ route, navigation }) {
             onPress={() => { Vibration.vibrate(20); setShowComplaintModal(true); }}
             activeOpacity={0.8}
           >
-            <Text style={styles.complaintBtnText}>⚠️ Register Complaint</Text>
+            <Text style={styles.complaintBtnText}>Register Complaint</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -735,7 +734,7 @@ export default function CustomerDetailScreen({ route, navigation }) {
               onPress={() => { Vibration.vibrate(10); setIsUrgent(!isUrgent); }}
             >
               <Text style={[styles.urgentToggleText, isUrgent && styles.urgentToggleTextActive]}>
-                {isUrgent ? '🔴 MARKED AS URGENT COMPLAINT' : '⚪ MARK AS URGENT'}
+                {isUrgent ? 'MARKED AS URGENT COMPLAINT' : 'MARK AS URGENT'}
               </Text>
             </TouchableOpacity>
 

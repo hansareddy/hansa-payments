@@ -312,7 +312,6 @@ export default function PaymentScreen({ route, navigation }) {
             Transaction ID / Ref No. <Text style={{ color: '#E11D48' }}>*</Text>
           </Text>
           <View style={styles.txnIdBox}>
-            <Text style={styles.txnIdIcon}>🧾</Text>
             <TextInput
               style={styles.txnIdInput}
               placeholder="Enter UPI Ref No. or Receipt ID (Required)"
@@ -359,7 +358,6 @@ export default function PaymentScreen({ route, navigation }) {
         <View style={styles.stepCard}>
           <Text style={styles.stepTitle}>Payment Date</Text>
           <View style={styles.dateSelectorBtn}>
-            <Text style={styles.dateSelectorIcon}>📅</Text>
             <Text style={styles.dateSelectorText}>
               {getTodayString()}
             </Text>

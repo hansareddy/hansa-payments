@@ -319,7 +319,6 @@ export default function ManageUsersScreen({ navigation }) {
           ListEmptyComponent={
             !error && (
               <View style={styles.centerBox}>
-                <Text style={styles.emptyIcon}>👥</Text>
                 <Text style={styles.emptyText}>No users found</Text>
               </View>
             )
@@ -423,7 +422,7 @@ export default function ManageUsersScreen({ navigation }) {
                         newRole === 'collector' && styles.roleOptionTextActive,
                       ]}
                     >
-                      💼 Field Collector
+                      Field Collector
                     </Text>
                   </TouchableOpacity>
 
@@ -441,7 +440,7 @@ export default function ManageUsersScreen({ navigation }) {
                         newRole === 'admin' && styles.roleOptionTextActive,
                       ]}
                     >
-                      👑 Full Admin
+                      Full Admin
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -460,7 +459,6 @@ export default function ManageUsersScreen({ navigation }) {
                   <View style={[styles.checkboxBox, permissions.recordPayments && styles.checkboxBoxChecked]}>
                     {permissions.recordPayments && <Text style={styles.checkboxCheck}>✓</Text>}
                   </View>
-                  <Text style={styles.checkboxIcon}>💵</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.checkboxLabel}>Record Payments & Collect Money</Text>
                     <Text style={styles.checkboxSub}>Collect cash/UPI payments from customers in app</Text>
@@ -475,7 +473,6 @@ export default function ManageUsersScreen({ navigation }) {
                   <View style={[styles.checkboxBox, permissions.lockLocation && styles.checkboxBoxChecked]}>
                     {permissions.lockLocation && <Text style={styles.checkboxCheck}>✓</Text>}
                   </View>
-                  <Text style={styles.checkboxIcon}>📍</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.checkboxLabel}>Log & Lock STB GPS Locations</Text>
                     <Text style={styles.checkboxSub}>Capture on-site GPS coordinates for STB units</Text>
@@ -490,7 +487,6 @@ export default function ManageUsersScreen({ navigation }) {
                   <View style={[styles.checkboxBox, permissions.editProfile && styles.checkboxBoxChecked]}>
                     {permissions.editProfile && <Text style={styles.checkboxCheck}>✓</Text>}
                   </View>
-                  <Text style={styles.checkboxIcon}>✏️</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.checkboxLabel}>Edit Customer Profiles</Text>
                     <Text style={styles.checkboxSub}>Update Subscriber Name, Mobile Number, or Box #</Text>
@@ -505,7 +501,6 @@ export default function ManageUsersScreen({ navigation }) {
                   <View style={[styles.checkboxBox, permissions.registerComplaint && styles.checkboxBoxChecked]}>
                     {permissions.registerComplaint && <Text style={styles.checkboxCheck}>✓</Text>}
                   </View>
-                  <Text style={styles.checkboxIcon}>📝</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.checkboxLabel}>Register Complaints & Service Notes</Text>
                     <Text style={styles.checkboxSub}>Log customer complaints and field service notes</Text>
@@ -520,7 +515,6 @@ export default function ManageUsersScreen({ navigation }) {
                   <View style={[styles.checkboxBox, permissions.viewMap && styles.checkboxBoxChecked]}>
                     {permissions.viewMap && <Text style={styles.checkboxCheck}>✓</Text>}
                   </View>
-                  <Text style={styles.checkboxIcon}>🗺️</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.checkboxLabel}>Access Network STB Map</Text>
                     <Text style={styles.checkboxSub}>View OpenStreetMap multi-marker network view</Text>
@@ -535,7 +529,6 @@ export default function ManageUsersScreen({ navigation }) {
                   <View style={[styles.checkboxBox, permissions.manageUsers && styles.checkboxBoxChecked]}>
                     {permissions.manageUsers && <Text style={styles.checkboxCheck}>✓</Text>}
                   </View>
-                  <Text style={styles.checkboxIcon}>👥</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.checkboxLabel}>Admin User Management</Text>
                     <Text style={styles.checkboxSub}>Create, edit, and delete user profiles</Text>
