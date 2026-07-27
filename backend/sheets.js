@@ -98,12 +98,25 @@ function detectColumnsFromHeader(headerRow) {
   };
 
   const monthCols = {};
-  MONTH_LIST.forEach(m => {
-    const idx = exact(m.key.toLowerCase());
-    monthCols[m.key] = idx !== -1 ? idx : exact(m.short.toLowerCase());
+  MONTH_LIST.forEach((m) => {
+    const keyLower = m.key.toLowerCase(); // "jan-26"
+    const shortLower = m.short.toLowerCase(); // "jan"
+    const fullLower = m.name.toLowerCase(); // "january 2026"
+    const monthOnly = m.name.split(' ')[0].toLowerCase(); // "january"
+
+    let foundIdx = norm.findIndex(h => 
+      h === keyLower || 
+      h === fullLower || 
+      h === monthOnly || 
+      h === shortLower ||
+      h.startsWith(shortLower) ||
+      h.startsWith(monthOnly)
+    );
+
+    monthCols[m.key] = foundIdx;
   });
 
-  return {
+  COL = {
     USERNAME: exact('name') !== -1 ? exact('name') : find(['username', 'subscriber'], 0),
     MOBILE: exact('mobile') !== -1 ? exact('mobile') : find(['phone', 'contact'], 1),
     LOCATION: exact('location') !== -1 ? exact('location') : -1,
@@ -125,9 +138,11 @@ function detectColumnsFromHeader(headerRow) {
     DATE1: exact('date1') !== -1 ? exact('date1') : (exact('expiry date') !== -1 ? exact('expiry date') : 10),
     DATE2: exact('date2') !== -1 ? exact('date2') : 11,
     FOR: exact('for') !== -1 ? exact('for') : (exact('notes') !== -1 ? exact('notes') : (exact('complaint') !== -1 ? exact('complaint') : -1)),
-    TRANSACTION_ID: exact('transaction_id') !== -1 ? exact('transaction_id') : -1,
+    TRANSACTION_ID: exact('transaction id') !== -1 ? exact('transaction id') : (exact('txn id') !== -1 ? exact('txn id') : -1),
     MONTH_COLS: monthCols,
   };
+
+  return COL;
 }
 
 // In-memory store for STB Box Numbers (2-3 digit identification codes)
@@ -302,11 +317,11 @@ function rowToCustomer(row, rowIndex) {
   let totalDueFromMonths = 0;
 
   MONTH_LIST.forEach((m, idx) => {
-    let colIdx = (COL.MONTH_COLS && COL.MONTH_COLS[m.key] !== undefined && COL.MONTH_COLS[m.key] !== -1)
+    let colIdx = (COL.MONTH_COLS && COL.MONTH_COLS[m.key] !== undefined)
       ? COL.MONTH_COLS[m.key]
-      : (8 + idx);
+      : -1;
 
-    const rawVal = (row[colIdx] !== undefined) ? String(row[colIdx]).trim() : '';
+    const rawVal = (colIdx !== -1 && row[colIdx] !== undefined) ? String(row[colIdx]).trim() : '';
     let cellNum = 0;
     const matchNum = rawVal.match(/^(\d+(\.\d+)?)/) || rawVal.match(/(\d+(\.\d+)?)/);
     if (matchNum) {
