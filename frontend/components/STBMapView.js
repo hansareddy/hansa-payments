@@ -7,19 +7,87 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Platform } from 'react-native';
 
 export default function STBMapView({ latitude, longitude, label, serialNumber, isLocked, lockedBy, customers = [] }) {
-  // If viewing single customer
-  const hasCoordinates = latitude && longitude && !isNaN(latitude) && !isNaN(longitude);
+  // Check if rendering for network map mode (passed customers list)
+  const isNetworkMapMode = Array.isArray(customers) && customers.length > 0;
   
-  // Default network center if no coordinates (Hansa Network region fallback: Andhra/Telangana 16.5, 80.6)
-  const mapLat = hasCoordinates ? latitude : 16.5062;
-  const mapLng = hasCoordinates ? longitude : 80.6480;
+  if (isNetworkMapMode) {
+    const validCustomers = customers.filter(c => c && c.latitude && c.longitude && !isNaN(parseFloat(c.latitude)) && !isNaN(parseFloat(c.longitude)));
+    
+    let centerLat = 16.5062;
+    let centerLng = 80.6480;
+    
+    if (validCustomers.length > 0) {
+      const sumLat = validCustomers.reduce((acc, curr) => acc + parseFloat(curr.latitude), 0);
+      const sumLng = validCustomers.reduce((acc, curr) => acc + parseFloat(curr.longitude), 0);
+      centerLat = sumLat / validCustomers.length;
+      centerLng = sumLng / validCustomers.length;
+    }
 
-  // OpenStreetMap embed URL
+    const networkOsmUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${centerLng - 0.03}%2C${centerLat - 0.03}%2C${centerLng + 0.03}%2C${centerLat + 0.03}&layer=mapnik&marker=${centerLat}%2C${centerLng}`;
+
+    return (
+      <View style={styles.container}>
+        <View style={styles.headerRow}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={styles.title}>🗺️ Network STB Geolocation Map</Text>
+            <View style={[styles.statusBadge, { backgroundColor: validCustomers.length > 0 ? '#D1FAE5' : '#FEF3C7' }]}>
+              <Text style={[styles.statusBadgeText, { color: validCustomers.length > 0 ? '#047857' : '#B45309' }]}>
+                {validCustomers.length} STB{validCustomers.length === 1 ? '' : 's'} MAPPED
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {validCustomers.length > 0 ? (
+          <View style={styles.mapFrameBox}>
+            {Platform.OS === 'web' ? (
+              <iframe
+                title="Network STB Map"
+                width="100%"
+                height="260"
+                frameBorder="0"
+                scrolling="no"
+                marginHeight="0"
+                marginWidth="0"
+                src={networkOsmUrl}
+                style={{ borderRadius: 12, border: 'none' }}
+              />
+            ) : (
+              <View style={styles.fallbackBox}>
+                <Text style={styles.coordsText}>🗺️ {validCustomers.length} STB Locations Mapped</Text>
+                <Text style={styles.coordsSub}>Center: {centerLat.toFixed(4)}, {centerLng.toFixed(4)}</Text>
+              </View>
+            )}
+
+            <View style={styles.metaFooter}>
+              <Text style={styles.metaText}>
+                STB GPS Registry • All locked on-site locations
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.noCoordsBox}>
+            <Text style={styles.noCoordsEmoji}>🗺️</Text>
+            <Text style={styles.noCoordsTitle}>No Network STBs Mapped Yet</Text>
+            <Text style={styles.noCoordsSub}>
+              Field employees can tap "Log & Lock STB Location On-Site" on customer profiles when visiting premises.
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  // Single customer map view
+  const hasCoordinates = latitude && longitude && !isNaN(latitude) && !isNaN(longitude);
+  const mapLat = hasCoordinates ? parseFloat(latitude) : 16.5062;
+  const mapLng = hasCoordinates ? parseFloat(longitude) : 80.6480;
+
   const osmEmbedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${mapLng - 0.01}%2C${mapLat - 0.01}%2C${mapLng + 0.01}%2C${mapLat + 0.01}&layer=mapnik&marker=${mapLat}%2C${mapLng}`;
 
   const openInGoogleMaps = () => {
     if (hasCoordinates) {
-      const url = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+      const url = `https://www.google.com/maps/search/?api=1&query=${mapLat},${mapLng}`;
       Linking.openURL(url);
     }
   };
@@ -58,8 +126,8 @@ export default function STBMapView({ latitude, longitude, label, serialNumber, i
             />
           ) : (
             <View style={styles.fallbackBox}>
-              <Text style={styles.coordsText}>📍 Latitude: {latitude.toFixed(6)}</Text>
-              <Text style={styles.coordsText}>📍 Longitude: {longitude.toFixed(6)}</Text>
+              <Text style={styles.coordsText}>📍 Latitude: {mapLat.toFixed(6)}</Text>
+              <Text style={styles.coordsText}>📍 Longitude: {mapLng.toFixed(6)}</Text>
             </View>
           )}
 
@@ -70,7 +138,7 @@ export default function STBMapView({ latitude, longitude, label, serialNumber, i
                 : 'Initial GPS capture pending for this STB'}
             </Text>
             <Text style={styles.coordsSub}>
-              GPS: {latitude.toFixed(5)}, {longitude.toFixed(5)}
+              GPS: {mapLat.toFixed(5)}, {mapLng.toFixed(5)}
             </Text>
           </View>
         </View>

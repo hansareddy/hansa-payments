@@ -26,8 +26,38 @@ let COL = {
   TRANSACTION_ID: 13,
 };
 
-// In-memory store for STB GPS Locations & Admin Unlock Requests
-const stbLocationStore = new Map(); // rowIndex -> { lat, lng, isLocked, loggedBy, loggedAt }
+// In-memory & persistent file store for STB GPS Locations & Admin Unlock Requests
+const locationPath = path.resolve(__dirname, 'stb_locations.json');
+const stbLocationStore = new Map(); // key -> { lat, lng, isLocked, loggedBy, loggedAt, username, rowIndex }
+
+function loadSTBLocations() {
+  try {
+    if (fs.existsSync(locationPath)) {
+      const data = JSON.parse(fs.readFileSync(locationPath, 'utf8'));
+      Object.keys(data).forEach(k => {
+        stbLocationStore.set(k, data[k]);
+      });
+      console.log(`📍 Loaded ${stbLocationStore.size} persistent STB locations.`);
+    }
+  } catch (err) {
+    console.warn('Could not load persistent STB locations:', err.message);
+  }
+}
+
+function saveSTBLocations() {
+  try {
+    const obj = {};
+    stbLocationStore.forEach((v, k) => {
+      obj[k] = v;
+    });
+    fs.writeFileSync(locationPath, JSON.stringify(obj, null, 2), 'utf8');
+  } catch (err) {
+    console.warn('Could not save persistent STB locations:', err.message);
+  }
+}
+
+loadSTBLocations();
+
 const unlockRequestsStore = []; // list of { id, rowIndex, username, requestedBy, reason, timestamp, status }
 
 /**
@@ -373,13 +403,36 @@ function rowToCustomer(row, rowIndex) {
   memoryLogs.forEach(item => historyMap.set(item.id, item));
   let history = Array.from(historyMap.values());
 
-  const stbLoc = stbLocationStore.get(rowIndex) || {
-    lat: null,
-    lng: null,
-    isLocked: false,
-    loggedBy: null,
-    loggedAt: null,
-  };
+  const userKey = username ? username.toLowerCase().trim() : String(rowIndex);
+  let stbLoc = stbLocationStore.get(userKey) || stbLocationStore.get(String(rowIndex));
+
+  // If not in store yet, check if raw location cell has coordinates e.g. "16.5062,80.6480"
+  if ((!stbLoc || !stbLoc.lat) && location) {
+    const coordsMatch = location.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+    if (coordsMatch) {
+      stbLoc = {
+        lat: parseFloat(coordsMatch[1]),
+        lng: parseFloat(coordsMatch[2]),
+        isLocked: location.toLowerCase().includes('lock') || location.toLowerCase().includes('verified') || location.includes('(LOCKED)'),
+        loggedBy: 'Field Staff',
+        loggedAt: new Date().toISOString(),
+        username,
+        rowIndex,
+      };
+      stbLocationStore.set(userKey, stbLoc);
+      stbLocationStore.set(String(rowIndex), stbLoc);
+    }
+  }
+
+  if (!stbLoc) {
+    stbLoc = {
+      lat: null,
+      lng: null,
+      isLocked: false,
+      loggedBy: null,
+      loggedAt: null,
+    };
+  }
 
   return {
     rowIndex,
@@ -887,7 +940,12 @@ async function updateComplaint(rowIndex, urgent, complaint) {
  */
 async function updateSTBLocation(rowIndex, lat, lng, loggedBy, userRole) {
   const index = parseInt(rowIndex, 10);
-  const existingLoc = stbLocationStore.get(index);
+  const current = await getCustomerByRow(index);
+  if (!current) throw new Error(`Customer not found for row ${index}`);
+
+  const targetIndex = current.rowIndex;
+  const userKey = (current.username || `row_${targetIndex}`).toLowerCase().trim();
+  const existingLoc = stbLocationStore.get(userKey) || stbLocationStore.get(String(targetIndex));
   const isAdmin = userRole === 'admin';
 
   if (existingLoc && existingLoc.isLocked && !isAdmin) {
@@ -900,13 +958,40 @@ async function updateSTBLocation(rowIndex, lat, lng, loggedBy, userRole) {
     isLocked: true,
     loggedBy: loggedBy || (isAdmin ? 'Admin' : 'Field Employee'),
     loggedAt: new Date().toISOString(),
+    username: current.username,
+    rowIndex: targetIndex,
   };
 
-  stbLocationStore.set(index, updatedLoc);
-  console.log(`📍 STB Location logged & locked for Row ${index}: (${lat}, ${lng}) by ${updatedLoc.loggedBy}`);
+  stbLocationStore.set(userKey, updatedLoc);
+  stbLocationStore.set(String(targetIndex), updatedLoc);
+  saveSTBLocations();
 
-  const customer = await getCustomerByRow(index);
-  return customer;
+  console.log(`📍 STB Location logged & locked for "${current.username}" (Row ${targetIndex}): (${lat}, ${lng}) by ${updatedLoc.loggedBy}`);
+
+  // Write location string to Google Sheet column LOCATION (Column C or COL.LOCATION)
+  if (isGoogleConfigured()) {
+    try {
+      const client = await getClient();
+      const sheetName = await resolveSheetName();
+      const spreadsheetId = getSpreadsheetId();
+
+      const locColIdx = (COL.LOCATION !== undefined && COL.LOCATION !== -1) ? COL.LOCATION : 2; // Column C
+      const colLetter = colIndexToLetter(locColIdx);
+      const locValue = `${updatedLoc.lat.toFixed(6)},${updatedLoc.lng.toFixed(6)} (LOCKED)`;
+
+      await client.spreadsheets.values.update({
+        spreadsheetId,
+        range: `'${sheetName}'!${colLetter}${targetIndex}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [[locValue]] },
+      });
+      console.log(`✅ Location written to Google Sheet cell ${colLetter}${targetIndex}: "${locValue}"`);
+    } catch (sheetErr) {
+      console.warn('⚠️ Could not write location to Google Sheet:', sheetErr.message);
+    }
+  }
+
+  return await getCustomerByRow(targetIndex, current.username);
 }
 
 /**
@@ -944,13 +1029,22 @@ async function approveLocationUnlock(requestId) {
   req.status = 'APPROVED';
 
   const index = req.rowIndex;
-  if (stbLocationStore.has(index)) {
-    const loc = stbLocationStore.get(index);
+  const userKey = (req.username || `row_${index}`).toLowerCase().trim();
+  
+  if (stbLocationStore.has(userKey)) {
+    const loc = stbLocationStore.get(userKey);
     loc.isLocked = false; // Unlocked!
-    stbLocationStore.set(index, loc);
+    stbLocationStore.set(userKey, loc);
   }
-  console.log(`✅ Admin approved location unlock for Row ${index}`);
-  return await getCustomerByRow(index);
+  if (stbLocationStore.has(String(index))) {
+    const loc = stbLocationStore.get(String(index));
+    loc.isLocked = false; // Unlocked!
+    stbLocationStore.set(String(index), loc);
+  }
+  saveSTBLocations();
+
+  console.log(`✅ Admin approved location unlock for Row ${index} (${req.username})`);
+  return await getCustomerByRow(index, req.username);
 }
 
 /**
