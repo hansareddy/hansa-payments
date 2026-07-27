@@ -23,7 +23,7 @@ import { registerComplaint, searchCustomers, updateSTBLocation, clearSTBLocation
 import { useAuth } from '../services/AuthContext';
 import STBMapView from '../components/STBMapView';
 
-import { enqueueLocationLock } from '../services/offlineQueue';
+import { enqueueLocationLock } from '../services/OfflineQueue';
 
 const DEFAULT_12_MONTHS = [
   { key: 'Jan-26', name: 'January 2026', short: 'Jan' },

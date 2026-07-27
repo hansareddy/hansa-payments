@@ -472,7 +472,6 @@ export default function CustomerListScreen({ navigation }) {
 
       {error && !loading && (
         <View style={styles.errorContainer}>
-          <View style={styles.errorContainer}>
           <Text style={styles.errorTitle}>Synchronization Failed</Text>
           <Text style={styles.errorSub}>{error}</Text>
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
