@@ -3,7 +3,8 @@
  * Refined font-weights for a cleaner layout.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -99,26 +100,28 @@ export default function CustomerDetailScreen({ route, navigation }) {
     }
   };
 
-  useEffect(() => {
-    let isMounted = true;
-    (async () => {
-      try {
-        if (customer && (customer.username || customer.customerNo)) {
-          const searchTerm = customer.username || customer.customerNo;
-          const res = await searchCustomers(searchTerm, true);
-          if (isMounted && res && res.customers && res.customers.length > 0) {
-            const fresh = res.customers.find(c => (c.rowIndex && c.rowIndex === customer.rowIndex) || c.username === customer.username);
-            if (fresh) {
-              setCurrentCustomer(fresh);
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      (async () => {
+        try {
+          if (customer && (customer.username || customer.customerNo)) {
+            const searchTerm = customer.username || customer.customerNo;
+            const res = await searchCustomers(searchTerm, true);
+            if (isMounted && res && res.customers && res.customers.length > 0) {
+              const fresh = res.customers.find(c => (c.rowIndex && c.rowIndex === customer.rowIndex) || c.username === customer.username);
+              if (fresh) {
+                setCurrentCustomer(fresh);
+              }
             }
           }
+        } catch (_e) {
+          // Fallback to route params
         }
-      } catch (_e) {
-        // Fallback to route params
-      }
-    })();
-    return () => { isMounted = false; };
-  }, [customer]);
+      })();
+      return () => { isMounted = false; };
+    }, [customer])
+  );
 
   const formatCurrency = (val) => {
     return '₹' + Number(val || 0).toLocaleString('en-IN', {

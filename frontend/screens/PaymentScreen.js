@@ -185,6 +185,13 @@ export default function PaymentScreen({ route, navigation }) {
           </View>
 
           <TouchableOpacity
+            style={[styles.doneBtn, { backgroundColor: '#059669', marginBottom: 10 }]}
+            onPress={() => navigation.navigate('CustomerDetail', { customer: updatedCustomer || customer, refresh: true })}
+          >
+            <Text style={styles.doneBtnText}>← Back to Customer Details</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={styles.doneBtn}
             onPress={() => navigation.navigate('CustomerList')}
           >
