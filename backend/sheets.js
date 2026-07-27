@@ -1267,4 +1267,7 @@ module.exports = {
   detectColumnsFromHeader,
   rowToCustomer,
   invalidateSheetCache,
+  getClient,
+  getSpreadsheetId,
+  resolveSheetName,
 };
