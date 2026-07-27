@@ -143,7 +143,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     service: 'Hansa Communications API',
-    version: '2.0.1-BLANK_MONTHS_DASH',
+    version: '2.0.2-DUAL_COLUMNS_STB_RESET',
     timestamp: new Date().toISOString(),
   });
 });
@@ -510,6 +510,22 @@ app.post('/api/stb/clear-location', async (req, res) => {
     res.json({ message: 'STB Geolocation cleared successfully', customer: updatedCustomer });
   } catch (error) {
     console.error('Clear STB Location error:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.delete('/api/stb/location', async (req, res) => {
+  try {
+    const rowIndex = parseInt(req.query.rowIndex || req.body.rowIndex, 10);
+    if (!rowIndex || isNaN(rowIndex)) {
+      return res.status(400).json({ error: 'Missing required field: rowIndex' });
+    }
+
+    const updatedCustomer = await clearSTBLocation(rowIndex);
+    invalidateCache();
+    res.json({ message: 'STB Geolocation cleared successfully', customer: updatedCustomer });
+  } catch (error) {
+    console.error('Delete STB Location error:', error.message);
     res.status(400).json({ error: error.message });
   }
 });

@@ -207,7 +207,15 @@ export async function updateSTBLocation(rowIndex, latitude, longitude, loggedBy)
 }
 
 export async function clearSTBLocation(rowIndex) {
-  return apiPost('/api/stb/clear-location', { rowIndex });
+  try {
+    return await apiPost('/api/stb/clear-location', { rowIndex });
+  } catch (err) {
+    try {
+      return await apiDelete(`/api/stb/location?rowIndex=${rowIndex}`);
+    } catch (_err2) {
+      return await apiPut('/api/stb/location', { rowIndex, latitude: null, longitude: null, loggedBy: 'Reset' });
+    }
+  }
 }
 
 export async function requestLocationUnlock(rowIndex, username, requestedBy, reason) {
