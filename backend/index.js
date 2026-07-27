@@ -142,7 +142,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     service: 'Hansa Communications API',
-    version: '2.0.0-PROD_FIX_SYNC',
+    version: '2.0.1-BLANK_MONTHS_DASH',
     timestamp: new Date().toISOString(),
   });
 });

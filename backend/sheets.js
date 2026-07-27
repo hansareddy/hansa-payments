@@ -383,7 +383,7 @@ function rowToCustomer(row, rowIndex) {
     });
   });
 
-  const due = COL.DUE !== -1 && parseCurrency(row[COL.DUE]) > 0 ? parseCurrency(row[COL.DUE]) : totalDueFromMonths;
+  const due = totalDueFromMonths;
 
   // Build full payment history dynamically from monthly billing entries
   const parsedHistory = [];
