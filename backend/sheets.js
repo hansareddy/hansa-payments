@@ -978,12 +978,7 @@ async function updateSTBLocation(rowIndex, lat, lng, loggedBy, userRole) {
 
   const targetIndex = current.rowIndex;
   const userKey = (current.username || '').toLowerCase().trim();
-  const existingLoc = userKey ? stbLocationStore.get(userKey) : null;
   const isAdmin = userRole === 'admin';
-
-  if (existingLoc && existingLoc.isLocked && !isAdmin) {
-    throw new Error('STB location is LOCKED. Permission from Admin is required to change this location.');
-  }
 
   const updatedLoc = {
     lat: parseFloat(lat),
@@ -1000,7 +995,7 @@ async function updateSTBLocation(rowIndex, lat, lng, loggedBy, userRole) {
   }
   saveSTBLocations();
 
-  console.log(`📍 STB Location logged & locked for "${current.username}" (Row ${targetIndex}): (${lat}, ${lng}) by ${updatedLoc.loggedBy}`);
+  console.log(`📍 STB Location re-locked for "${current.username}" (Row ${targetIndex}): (${lat}, ${lng}) by ${updatedLoc.loggedBy}`);
 
   // Write location string to Google Sheet column LOCATION (Column C or COL.LOCATION)
   if (isGoogleConfigured()) {
@@ -1025,6 +1020,7 @@ async function updateSTBLocation(rowIndex, lat, lng, loggedBy, userRole) {
     }
   }
 
+  invalidateSheetCache();
   return await getCustomerByRow(targetIndex, current.username);
 }
 

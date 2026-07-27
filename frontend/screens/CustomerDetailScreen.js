@@ -186,24 +186,22 @@ export default function CustomerDetailScreen({ route, navigation }) {
         try {
           const res = await updateSTBLocation(currentCustomer.rowIndex, lat, lng, 'Field Tech');
           if (res && res.customer) updatedCust = res.customer;
-        } catch (_netErr) {
-          // Fallback to client-side state update if server is temporarily unreachable
+        } catch (apiErr) {
+          console.warn('STB location API warning:', apiErr.message);
         }
 
-        if (updatedCust) {
-          setCurrentCustomer(updatedCust);
-        } else {
-          setCurrentCustomer(prev => ({
-            ...prev,
-            latitude: lat,
-            longitude: lng,
-            locationLocked: true,
-            locationLoggedBy: 'Field Tech',
-            locationTimestamp: new Date().toISOString(),
-          }));
-        }
+        setCurrentCustomer(prev => ({
+          ...prev,
+          latitude: lat,
+          longitude: lng,
+          location: `${lat.toFixed(6)},${lng.toFixed(6)} (LOCKED)`,
+          locationLocked: true,
+          locationLoggedBy: 'Field Tech',
+          locationTimestamp: new Date().toISOString(),
+          ...(updatedCust || {}),
+        }));
 
-        const successMsg = `📍 STB Location Locked: Coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)}) captured and locked on-site.`;
+        const successMsg = `📍 STB Location Re-Locked: Coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)}) updated and locked on-site.`;
         if (Platform.OS === 'web') {
           alert(successMsg);
         } else {
