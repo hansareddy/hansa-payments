@@ -800,38 +800,54 @@ async function updatePayment(rowIndex, paymentMode, paymentAmount, discountAmoun
           }
         }
 
-        // Change target month cell background color to Green in Google Sheets
+        // Change Paid month cell background color to Green in Google Sheets, and ensure Fee cell is plain white
         try {
           const targetSheetId = await resolveSheetId();
-          await client.spreadsheets.batchUpdate({
-            spreadsheetId,
-            requestBody: {
-              requests: [
-                {
-                  repeatCell: {
-                    range: {
-                      sheetId: targetSheetId,
-                      startRowIndex: index - 1,
-                      endRowIndex: index,
-                      startColumnIndex: writeColIdx,
-                      endColumnIndex: writeColIdx + 1,
-                    },
-                    cell: {
-                      userEnteredFormat: {
-                        backgroundColor: {
-                          red: 0.819,   // Light green #D1FAE5
-                          green: 0.98,
-                          blue: 0.898,
-                        },
-                      },
-                    },
-                    fields: 'userEnteredFormat.backgroundColor',
+          const colorRequests = [
+            {
+              repeatCell: {
+                range: {
+                  sheetId: targetSheetId,
+                  startRowIndex: index - 1,
+                  endRowIndex: index,
+                  startColumnIndex: writeColIdx,
+                  endColumnIndex: writeColIdx + 1,
+                },
+                cell: {
+                  userEnteredFormat: {
+                    backgroundColor: { red: 0.819, green: 0.98, blue: 0.898 }, // Light green #D1FAE5
                   },
                 },
-              ],
+                fields: 'userEnteredFormat.backgroundColor',
+              },
             },
+          ];
+
+          if (paidColIdx !== -1 && paidColIdx !== feeColIdx && feeColIdx !== -1) {
+            colorRequests.push({
+              repeatCell: {
+                range: {
+                  sheetId: targetSheetId,
+                  startRowIndex: index - 1,
+                  endRowIndex: index,
+                  startColumnIndex: feeColIdx,
+                  endColumnIndex: feeColIdx + 1,
+                },
+                cell: {
+                  userEnteredFormat: {
+                    backgroundColor: { red: 1, green: 1, blue: 1 }, // Plain White #FFFFFF
+                  },
+                },
+                fields: 'userEnteredFormat.backgroundColor',
+              },
+            });
+          }
+
+          await client.spreadsheets.batchUpdate({
+            spreadsheetId,
+            requestBody: { requests: colorRequests },
           });
-          console.log(`🎨 Cell ${colLetter}${index} background color updated to GREEN in Google Sheets.`);
+          console.log(`🎨 Cell ${colLetter}${index} background color updated to GREEN (Fee cell reset to White) in Google Sheets.`);
         } catch (colorErr) {
           console.warn('⚠️ Could not update cell color on Google Sheet:', colorErr.message);
         }
