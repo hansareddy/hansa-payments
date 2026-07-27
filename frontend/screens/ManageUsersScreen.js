@@ -200,21 +200,20 @@ export default function ManageUsersScreen({ navigation }) {
         <View style={styles.userInfo}>
           <View style={styles.userNameRow}>
             <Text style={styles.userDisplayName} numberOfLines={1}>
-              {item.displayName}
+              {item.displayName || item.username}
             </Text>
-            {isCurrentUser && (
-              <Text style={styles.youBadge}>CURRENT PROFILE</Text>
-            )}
-          </View>
-          <Text style={styles.userUsername}>@{item.username}</Text>
-          
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
             <View style={[styles.roleBadge, { backgroundColor: badge.bg }]}>
               <Text style={[styles.roleBadgeText, { color: badge.color }]}>
                 {badge.label}
               </Text>
             </View>
+            {isCurrentUser && (
+              <Text style={styles.youBadge}>YOU</Text>
+            )}
           </View>
+          {item.displayName && item.username && item.displayName.toLowerCase() !== item.username.toLowerCase() && (
+            <Text style={styles.userUsername}>@{item.username}</Text>
+          )}
 
           {/* Granular Active Permissions Pills */}
           <View style={styles.permsPillRow}>
@@ -269,18 +268,11 @@ export default function ManageUsersScreen({ navigation }) {
         <View style={styles.activeProfileCard}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={{ fontSize: 13, fontWeight: '800', color: '#1E3A8A' }}>
-                  ACTIVE ACCOUNT: {currentUser?.displayName || 'Admin'} (@{currentUser?.username || 'admin'})
-                </Text>
-                <View style={{ backgroundColor: currentUser?.role === 'admin' ? '#EEF2FF' : '#ECFDF5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                  <Text style={{ fontSize: 9, fontWeight: '800', color: currentUser?.role === 'admin' ? '#3730A3' : '#047857' }}>
-                    {currentUser?.role === 'admin' ? 'ADMIN' : 'COLLECTOR'}
-                  </Text>
-                </View>
-              </View>
-              <Text style={{ fontSize: 11, color: '#475569', marginTop: 1 }}>
-                {currentUser?.role === 'admin' ? 'Full Administrator Access & Granular Checkbox Permission Management' : 'Field Collection Profile Active'}
+              <Text style={{ fontSize: 13, fontWeight: '800', color: '#1E3A8A' }}>
+                Active Profile: {currentUser?.displayName || 'Admin'}
+              </Text>
+              <Text style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>
+                {currentUser?.role === 'admin' ? 'Full Administrator Access & Permission Control' : 'Field Collection Profile Active'}
               </Text>
             </View>
           </View>

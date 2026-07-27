@@ -321,12 +321,14 @@ export default function CustomerListScreen({ navigation }) {
           <View>
             <Text style={styles.headerLogo}>Hansa CRM</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-              <Text style={styles.headerSub}>{user?.displayName || 'User'} (@{user?.username || 'user'})</Text>
-              <View style={{ backgroundColor: user?.role === 'admin' ? '#EEF2FF' : '#ECFDF5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                <Text style={{ fontSize: 9, fontWeight: '800', color: user?.role === 'admin' ? '#3730A3' : '#047857' }}>
-                  {user?.role === 'admin' ? 'ADMIN' : 'COLLECTOR'}
-                </Text>
-              </View>
+              <Text style={styles.headerSub}>
+                {user?.role === 'admin' ? (user?.displayName || 'Admin') : `${user?.displayName || 'User'} (@${user?.username || 'user'})`}
+              </Text>
+              {user?.role !== 'admin' && (
+                <View style={{ backgroundColor: '#ECFDF5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ fontSize: 9, fontWeight: '800', color: '#047857' }}>COLLECTOR</Text>
+                </View>
+              )}
             </View>
           </View>
           <View style={styles.headerActionRow}>
